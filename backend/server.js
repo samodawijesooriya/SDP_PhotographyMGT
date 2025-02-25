@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { data } from 'react-router';
 import userRouter from './routes/userRoute.js';
 import 'dotenv/config';
+import packageRouter from './routes/packageRoutes.js';
 
 
 // app config
@@ -19,6 +20,8 @@ app.use(cors());    // access backend from frontend
 
 // api end ponits
 app.use('/api/user', userRouter);
+
+app.use('/api/packages', packageRouter)
 
 // request the data from the server
 app.get("/", (req, res) => {

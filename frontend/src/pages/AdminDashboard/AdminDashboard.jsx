@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './AdminDashboard.css';
 import { Calendar, BookOpen, Package, Users, CalendarDays } from 'lucide-react';
 import UserManagement from './UserManagemnet';
+import ManagePackages from './ManagePackages';
 
 const AdminDashboard = () => {
   const [userData, setUserData] = useState(null);
@@ -91,8 +92,8 @@ const AdminDashboard = () => {
           )}
           {activeSection === 'packages' && (
             <div className="section-container">
-              <h2>Manage Packages</h2>
-              {/* Add package management content here */}
+              <h2>Manage Packages</h2>  
+              <ManagePackages />
             </div>
           )}
           {activeSection === 'users' && (

@@ -1,0 +1,127 @@
+-- Create Database
+CREATE DATABASE IF NOT EXISTS photography_services;
+USE photography_services;
+
+-- Event Table
+CREATE TABLE event (
+    eventId INT AUTO_INCREMENT PRIMARY KEY,
+    eventName VARCHAR(100) NOT NULL,
+    description TEXT
+);
+
+-- Package Tier Table
+CREATE TABLE packageTier (
+    packageTierId INT AUTO_INCREMENT PRIMARY KEY,
+    packageTierName VARCHAR(50) NOT NULL
+);
+
+-- Package Table
+CREATE TABLE package (
+    packageId INT AUTO_INCREMENT PRIMARY KEY,
+    packageName VARCHAR(100) NOT NULL,
+    eventId INT,
+    packageTierId INT,
+    investedAmount DECIMAL(10,2) NOT NULL,
+    coverageHours INT,
+    FOREIGN KEY (eventId) REFERENCES event(eventId),
+    FOREIGN KEY (packageTierId) REFERENCES packageTier(packageTierId)
+);
+
+-- Items Table
+CREATE TABLE items (
+    itemId INT AUTO_INCREMENT PRIMARY KEY,
+    itemType VARCHAR(100) NOT NULL
+);
+
+-- Package Items Table
+CREATE TABLE packageItems (
+    packageId INT,
+    itemId INT,
+    quantity INT,
+    PRIMARY KEY (packageId, itemId),
+    FOREIGN KEY (packageId) REFERENCES package(packageId),
+    FOREIGN KEY (itemId) REFERENCES items(itemId)
+);
+
+-- Details Table
+CREATE TABLE details (
+    detailId INT AUTO_INCREMENT PRIMARY KEY,
+    detailDescription TEXT
+);
+
+-- Package Details Table
+CREATE TABLE packageDetails (
+    packageId INT,
+    detailId INT,
+    PRIMARY KEY (packageId, detailId),
+    FOREIGN KEY (packageId) REFERENCES package(packageId),
+    FOREIGN KEY (detailId) REFERENCES details(detailId)
+);
+
+-- Sample Data Insertion
+
+-- Insert Events
+INSERT INTO event (eventName, description) VALUES 
+('Wedding', 'Capturing the most special day of a couple\'s life'),
+('Homecoming', 'Celebrating return or milestone events'),
+('Engagement', 'Pre-wedding celebration and photo session'),
+('Birthday', 'Marking another year of life'),
+('Graduation', 'Commemorating academic achievements');
+
+-- Insert Package Tiers
+INSERT INTO packageTier (packageTierName) VALUES 
+('Lite'),
+('Classic'),
+('Basic'),
+('Premium'),
+('Luxury');
+
+-- Insert Packages
+INSERT INTO package (packageName, eventId, packageTierId, investedAmount, coverageHours) VALUES 
+('Wedding Lite Package', 1, 1, 80000.00, 10),
+('Wedding Classic Package', 1, 2, 100000.00, 10),
+('Homecoming Basic Package', 2, 3, 50000.00, 8),
+('Engagement Premium Package', 3, 4, 130000.00, 6);
+
+-- Insert Items
+INSERT INTO items (itemType) VALUES 
+('Digital Images'),
+('Wooden Framed Portrait'),
+('Thankyou Cards'),
+('Fine Art Album'),
+('Slideshow');
+
+-- Insert Package Items
+INSERT INTO packageItems (packageId, itemId, quantity) VALUES 
+(1, 1, 200),  -- Wedding Lite: Digital Images
+(1, 2, 2),    -- Wedding Lite: Wooden Framed Portraits
+(1, 3, 50),   -- Wedding Lite: Thankyou Cards
+(2, 1, 200),  -- Wedding Classic: Digital Images
+(2, 4, 1),    -- Wedding Classic: Fine Art Album
+(3, 1, 100),  -- Homecoming Basic: Digital Images
+(4, 5, 1);    -- Engagement Premium: Slideshow
+
+-- Insert Details
+INSERT INTO details (detailDescription) VALUES 
+('10 Hours Event Coverage'),
+('Main Photo Session at Preferred Location'),
+('Getting Ready at Hotel'),
+('Unedited Images Included'),
+('Professionally Retouched Images');
+
+-- Insert Package Details
+INSERT INTO packageDetails (packageId, detailId) VALUES 
+(1, 1),
+(1, 2),
+(1, 3),
+(2, 1),
+(2, 2),
+(2, 4),
+(3, 1),
+(3, 2),
+(4, 5);
+
+-- Create Indexes for Performance
+CREATE INDEX idx_event_name ON event(eventName);
+CREATE INDEX idx_package_name ON package(packageName);
+CREATE INDEX idx_item_type ON items(itemType);

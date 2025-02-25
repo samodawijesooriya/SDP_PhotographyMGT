@@ -28,16 +28,6 @@ class UserModel {
         });
     }
 
-    static createUser(newUser, result) {
-        db.query('INSERT INTO user SET ?', newUser, (err, res) => {
-            if (err) {
-                console.log('Error:', err);
-                result(err, null);
-                return;
-            }
-            result(null, { id: res.insertId, ...newUser });
-        });
-    }
 
     static updateUser(id, user, result) {
         db.query(

@@ -11,7 +11,7 @@ import StoreContextProvider from './context/StoreContext'
 import Album from './pages/Albums/Album'
 import Booking from './pages/Booking/Booking'
 import Events from './pages/Events/Events'
-import AdminDashboard from './components/AdminDashboard/AdminDashboard'
+import AdminDashboard from './pages/AdminDashboard/AdminDashboard'
 
 const App = () => {
 

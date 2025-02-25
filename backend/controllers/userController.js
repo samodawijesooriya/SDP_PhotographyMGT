@@ -168,24 +168,112 @@ const createUser = async (req, res) => {
     }
 
     // Create a User
-    const user = new UserModel({
-        username: req.body.username,
-        email: req.body.email,
-        password: req.body.password,
-        role: req.body.role,
-        mobile: req.body.mobile
-    });
+    const { username, email, password, mobile } = req.body;
+    const role = req.body.role || 'customer';
 
-    // Save User in the database
-    UserModel.createUser(user, (err, data) => {
-        if (err) {
-            res.status(500).send({
-                message: err.message || "Some error occurred while creating the User."
+    try {
+        // Check if the user already exists
+        const sqlCheck = 'SELECT * FROM user WHERE username = ?';
+        db.query(sqlCheck, [username], async (err, results) => {
+            if (err) {
+                return res.json({ success: false, message: "An error occurred while checking for existing user" });
+            }
+            if (results.length > 0) {
+                return res.json({ success: false, message: "User already exists" });
+            }
+
+            // Validate email format and password strength
+            if (!validator.isEmail(email)) {
+                return res.json({ success: false, message: "Invalid email format" });
+            }
+            if (password.length < 8) {
+                return res.json({ success: false, message: "Password must be at least 8 characters" });
+            }
+
+            // // validate the mobile number
+            // if (!validator.isMobilePhone(mobile, 'en-IN')) {
+            //     return res.json({ success: false, message: "Invalid mobile number" });
+            // }
+
+            // cannot decrypt the password (ERROR: data and hash arguments required)
+            // Encrypt the password
+            // const salt = await bcrypt.genSalt(10);
+            // const hashedPassword = await bcrypt.hash(password, salt);
+
+            // Generate new user ID
+            const sqlId = 'SELECT COALESCE(MAX(userID), 0) AS maxId FROM user';
+            db.query(sqlId, (err, result) => {
+                if (err) {
+                    return res.json({ success: false, message: "An error occurred while generating a new ID" });
+                }
+                const newId = result[0].maxId + 1;
+                
+                // Insert new user
+                const sqlInsert = 'INSERT INTO user (userID, username, email, password, role, mobile) VALUES (?, ?, ?, ?, ?, ?)';
+                db.query(sqlInsert, [newId, username, email, password, role, mobile], (err, user) => {
+                    if (err) {
+                        return res.json({ success: false, message: "An error occurred while creating the user" });
+                    }
+
+                    // Create a token
+                    const token = createToken(newId);
+                    res.json({ success: true, token: token });
+                });
             });
-        } else {
-            res.send(data);
-        }
-    });
+        });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: "An error occurred" });
+    }
 };
 
-export { registerUser, loginUser, getAllUsers, createUser };
+const deleteUser= async (req, res) => {
+    const { userId } = req.params;
+
+  const query = "DELETE FROM user WHERE userID = ?";
+  
+  db.query(query, [userId], (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: "Failed to delete user" });
+    }
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(200).json({ message: "User deleted successfully" });
+  });
+}
+
+const updateUser = async (req, res) => {
+    
+    try {
+        console.log("Request params:", req.params);
+        const { id } = req.params;  // Corrected parameter extraction
+        console.log("Updating user with ID:", id);  
+
+        const query = "UPDATE user SET username=?, email=?, mobile=?, role=? WHERE userID=?";
+        const values = [req.body.username, req.body.email, req.body.mobile, req.body.role, id];
+
+        db.query(query, values, (err, result) => {
+            if (err) {
+                console.error("Error updating user:", err);
+                return res.status(500).json({ error: "Failed to update user" });
+            }
+            
+            if (result.affectedRows === 0) {
+                console.warn("User not found:", id);
+                return res.status(404).json({ error: "User not found" });
+            }
+
+            res.status(200).json({ message: "User updated successfully" });
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: 'Server error',
+            error: error.message
+        });
+    }
+}
+
+export { registerUser, loginUser, getAllUsers, createUser, deleteUser, updateUser };

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useContext } from "react";
 import { Search, Edit, Trash2, UserPlus, Mail, Phone } from "lucide-react";
 import { StoreContext } from "../../context/StoreContext";
+import axios from "axios";
 import "./UserManagement.css";
 import AddUserForm from "./AddUserForm";
+import EditUserForm from "./EditUserForm";
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -11,6 +13,8 @@ const UserManagement = () => {
   const [error, setError] = useState(null);
   const { url } = useContext(StoreContext);
   const [isAddUserFormOpen, setIsAddUserFormOpen] = useState(false);
+  const [isEditUserFormOpen, setIsEditUserFormOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -25,24 +29,26 @@ const UserManagement = () => {
   };
 
   const handleDeleteUser = async (userId) => {
-    try {
-      await fetch(`http://localhost:4000/api/user/allusers`, {
-        method: "DELETE",
-      });
-      fetchUsers();
-    } catch (err) {
-      setError(err.message);
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await axios.delete(`http://localhost:4000/api/user/${userId}`);
+        fetchUsers();
+      } catch (err) {
+        setError(err.message);
+      }
     }
   };
 
-  <AddUserForm
-    isOpen={isAddUserFormOpen}
-    onClose={() => setIsAddUserFormOpen(false)}
-    onUserAdded={() => {
-      fetchUsers();
-      setIsAddUserFormOpen(false);
-    }}
-  />
+  const handleEditUser = (user) => {
+    setSelectedUser(user);
+    setIsEditUserFormOpen(true);
+  };
+
+  const handleUserUpdated = () => {
+    fetchUsers();
+    setIsEditUserFormOpen(false);
+    setSelectedUser(null);
+  };
 
   const filteredUsers = users.filter(
     (user) =>
@@ -82,12 +88,35 @@ const UserManagement = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <button className="btn-add"
-          onClick={() => setIsAddUserFormOpen(true)}>
+        <div 
+          className="btn-add"
+          onClick={() => setIsAddUserFormOpen(true)}
+        >
           <UserPlus />
           Add New User
-        </button>
+        </div>
       </div>
+      
+      <AddUserForm
+        isOpen={isAddUserFormOpen}
+        onClose={() => setIsAddUserFormOpen(false)}
+        onUserAdded={() => {
+          fetchUsers();
+          setIsAddUserFormOpen(false);
+        }}
+      />
+
+      {selectedUser && (
+        <EditUserForm
+          isOpen={isEditUserFormOpen}
+          onClose={() => {
+            setIsEditUserFormOpen(false);
+            setSelectedUser(null);
+          }}
+          onUserUpdated={handleUserUpdated}
+          user={selectedUser}
+        />
+      )}
 
       <div className="table-wrapper">
         <table>
@@ -120,7 +149,9 @@ const UserManagement = () => {
                 </td>
                 <td>
                   <div className="actions">
-                    <button className="btn-icon">
+                  <button 
+                      className="btn-icon"
+                      onClick={() => handleEditUser(user)}>
                       <Edit size={16} />
                     </button>
                     <button 

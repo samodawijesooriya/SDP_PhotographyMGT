@@ -1,21 +1,20 @@
-import React, { useState, useContext } from 'react';
+// EditUserForm.jsx
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import axios from 'axios';
-import { StoreContext } from '../../context/StoreContext';
-import './AddUserForm.css';
+import './EditUserForm.css';
 
-const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
+const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    mobile: '',
-    role: 'user',
-    password: ''
+    username: user.username || '',
+    email: user.email || '',
+    mobile: user.mobile || '',
+    role: user.role || 'customer'
   });
   
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const { url } = useContext(StoreContext);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -29,25 +28,25 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
 
     try {
-      const response = await axios.post('http://localhost:4000/api/user/', formData, {
+        console.log('User:', user.userID);
+      const response = await axios.put(`http://localhost:4000/api/user/${user.userID}`, formData, {
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         }
       });
 
-      onUserAdded(response.data);
-      onClose();
-      setFormData({
-        username: '',
-        email: '',
-        mobile: '',
-        role: 'user',
-        password: ''
-      });
+      setSuccess('User updated successfully!');
+      onUserUpdated(response.data);
+      
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Failed to create user');
+      setError(err.response?.data?.message || err.message || 'Failed to update user');
     } finally {
       setLoading(false);
     }
@@ -55,23 +54,36 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
 
   if (!isOpen) return null;
 
+  const handleOverlayClick = (e) => {
+    if (e.target.className === 'modal-overlay') {
+      onClose();
+    }
+  };
+
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
+    <div className="modal-overlay" onClick={handleOverlayClick}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Add New User</h2>
-          <button onClick={onClose} className="close-button">
+          <h2>Edit User</h2>
+          <div 
+            onClick={onClose} 
+            className="close-button"
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                onClose();
+              }
+            }}
+          >
             <X size={24} />
-          </button>
+          </div>
         </div>
 
-        {error && (
-          <div className="error-message">
-            {error}
-          </div>
-        )}
+        {error && <div className="error-message">{error}</div>}
+        {success && <div className="success-message">{success}</div>}
 
-        <form onSubmit={handleSubmit} className="add-user-form">
+        <form onSubmit={handleSubmit} className="edit-user-form">
           <div className="form-group">
             <label>Username</label>
             <input
@@ -112,21 +124,10 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
               value={formData.role}
               onChange={handleChange}
             >
-              <option value="user">User</option>
+              <option value="customer">Customer</option>
+              <option value="photographer">Photographer</option>
               <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
             </select>
-          </div>
-
-          <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
           </div>
 
           <div className="form-actions">
@@ -142,7 +143,7 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
               disabled={loading}
               className="submit-button"
             >
-              {loading ? 'Adding...' : 'Add User'}
+              {loading ? 'Updating...' : 'Update User'}
             </button>
           </div>
         </form>
@@ -151,4 +152,4 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
   );
 };
 
-export default AddUserForm;
+export default EditUserForm;
