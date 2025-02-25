@@ -15,6 +15,8 @@ const UserManagement = () => {
   const [isAddUserFormOpen, setIsAddUserFormOpen] = useState(false);
   const [isEditUserFormOpen, setIsEditUserFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [successAlert, setSuccessAlert] = useState(null);
+  const [alertType, setAlertType] = useState("success");
 
   const fetchUsers = async () => {
     try {
@@ -28,11 +30,22 @@ const UserManagement = () => {
     }
   };
 
+  const showSuccessAlert = (message, type = "success") => {
+    setSuccessAlert(message);
+    setAlertType(type);
+    
+    // Auto-hide the alert after 5 seconds
+    setTimeout(() => {
+      setSuccessAlert(null);
+    }, 5000);
+  };
+
   const handleDeleteUser = async (userId) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         await axios.delete(`http://localhost:4000/api/user/${userId}`);
         fetchUsers();
+        showSuccessAlert(`User deleted successfully!`, "delete");
       } catch (err) {
         setError(err.message);
       }
@@ -48,6 +61,7 @@ const UserManagement = () => {
     fetchUsers();
     setIsEditUserFormOpen(false);
     setSelectedUser(null);
+    showSuccessAlert(`User added successfully!`, "success");
   };
 
   const filteredUsers = users.filter(
@@ -80,7 +94,7 @@ const UserManagement = () => {
     <div className="users-page">
       <div className="top-bar">
         <div className="search-wrapper">
-          <Search className="search-icon" />
+          
           <input
             type="text"
             placeholder="Search users..."
@@ -103,6 +117,7 @@ const UserManagement = () => {
         onUserAdded={() => {
           fetchUsers();
           setIsAddUserFormOpen(false);
+          showSuccessAlert("User added successfully!", "success");
         }}
       />
 
@@ -167,6 +182,21 @@ const UserManagement = () => {
           </tbody>
         </table>
       </div>
+      {/* Success Alert Toast */}
+      {successAlert && (
+        <div className={`success-alert ${alertType}-alert`}>
+          <div className="success-alert-content">
+            <span className="success-icon">✓</span>
+            {successAlert}
+            <button 
+              className="close-alert-button"
+              onClick={() => setSuccessAlert(null)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

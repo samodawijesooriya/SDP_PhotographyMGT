@@ -28,7 +28,6 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setSuccess('');
 
     try {
       const response = await axios.post('http://localhost:4000/api/user/create', formData, {
@@ -37,22 +36,10 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
         }
       });
 
-      setSuccess('User created successfully!');
       console.log('Token:', response.data.token);
       console.log('Success message:', 'User created successfully!');
       onUserAdded(response.data); // Changed from data to response.data
       
-      // Wait for 1.5 seconds to show success message before closing
-      setTimeout(() => {
-        onClose();
-        setFormData({
-          username: '',
-          email: '',
-          mobile: '',
-          role: 'user',
-          password: ''
-        });
-      }, 1500);
 
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to create user');
@@ -70,6 +57,7 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
   };
 
   return (
+    
     <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -171,6 +159,7 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
           </div>
         </form>
       </div>
+      
     </div>
   );
 };

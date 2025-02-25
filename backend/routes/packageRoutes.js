@@ -1,6 +1,7 @@
 // routes/packageRoutes.js
 import express, { Router } from 'express';
 import { 
+    getPackageDetails,
     getEvents,
     getPackageTiers, 
     getPackageItems,
@@ -25,11 +26,11 @@ packageRouter.get('/tiers', getPackageTiers);
 // fetch package items
 packageRouter.get('/items', getPackageItems);   
 
-// Get form data for package creation/editing
-packageRouter.get('/form-data', getPackageFormData);
+// fetch package details
+packageRouter.get('/details', getPackageDetails);
 
 // Create a new package
-packageRouter.post('/', createPackage);
+packageRouter.post('/create', createPackage);
 
 // Update an existing package
 packageRouter.put('/:packageId', updatePackage);

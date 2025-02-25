@@ -61,176 +61,209 @@ const getPackageItems = async (req, res) => {
     }
 };
 
-// Create a new package
+// Get pacakge details
+const getPackageDetails = async (req, res) => {
+    try {
+        const [details] = await db.promise().query('SELECT detailId, detailDescription FROM details');
+        res.json(details);
+    } catch (error) {
+        console.error('Error fetching package details:', error);
+        res.status(500).json({ message: 'Error fetching package details', error: error.message });
+    }
+};
+
 const createPackage = async (req, res) => {
     const { 
         packageName, 
-        eventId, 
-        packageTierId, 
-        investedAmount, 
         coverageHours,
+        eventName, 
+        packageTier, 
+        investedAmount, 
         items,
         details
     } = req.body;
 
-    const connection = await db.promise().getConnection();
-
     try {
-        // Start transaction
-        await connection.beginTransaction();
+        // First, get the eventId from eventName
+        const sqlEventQuery = 'SELECT eventId FROM event WHERE eventName = ?';
+        const eventResults = await queryDatabase(sqlEventQuery, [eventName]);
 
-        // Insert package
-        const [packageResult] = await connection.query(
-            'INSERT INTO package (packageName, eventId, packageTierId, investedAmount, coverageHours) VALUES (?, ?, ?, ?, ?)',
-            [packageName, eventId, packageTierId, investedAmount, coverageHours]
-        );
-        const packageId = packageResult.insertId;
+        if (eventResults.length === 0) {
+            return res.json({ success: false, message: "Event not found" });
+        }
+        const eventId = eventResults[0].eventId;
 
-        // Insert package items
+        // Then, get the packageTierId from packageTier
+        const sqlTierQuery = 'SELECT packageTierId FROM packageTier WHERE packageTierName = ?';
+        const tierResults = await queryDatabase(sqlTierQuery, [packageTier]);
+
+        if (tierResults.length === 0) {
+            return res.json({ success: false, message: "Package tier not found" });
+        }
+        const packageTierId = tierResults[0].packageTierId;
+
+        // Generate new package ID if needed, or use auto-increment
+        const sqlId = 'SELECT COALESCE(MAX(packageId), 0) AS maxId FROM package';
+        const idResults = await queryDatabase(sqlId);
+        const newPackageId = idResults[0].maxId + 1;
+
+        // Insert the new package
+        const sqlInsert = 'INSERT INTO package (packageId, packageName, eventId, packageTierId, investedAmount, coverageHours) VALUES (?, ?, ?, ?, ?, ?)';
+        await queryDatabase(sqlInsert, [newPackageId, packageName, eventId, packageTierId, investedAmount, coverageHours]);
+
+        // Insert package items if they exist
         if (items && items.length > 0) {
-            const itemInsertPromises = items.map(item => 
-                connection.query(
-                    'INSERT INTO packageItems (packageId, itemId, quantity) VALUES (?, ?, ?)',
-                    [packageId, item.itemId, item.quantity]
-                )
-            );
-            await Promise.all(itemInsertPromises);
+            await Promise.all(items.map(item => {
+                const sqlItemInsert = 'INSERT INTO packageItems (packageId, itemId, quantity) VALUES (?, ?, ?)';
+                return queryDatabase(sqlItemInsert, [newPackageId, item.itemId, item.quantity]);
+            }));
         }
 
-        // Insert package details
+        // Insert package details if they exist
         if (details && details.length > 0) {
-            const detailInsertPromises = details.map(detailId => 
-                connection.query(
-                    'INSERT INTO packageDetails (packageId, detailId) VALUES (?, ?)',
-                    [packageId, detailId]
-                )
-            );
-            await Promise.all(detailInsertPromises);
+            await Promise.all(details.map(detailId => {
+                const sqlDetailInsert = 'INSERT INTO packageDetails (packageId, detailId) VALUES (?, ?)';
+                return queryDatabase(sqlDetailInsert, [newPackageId, detailId]);
+            }));
         }
 
-        // Commit transaction
-        await connection.commit();
+        // Send success response after all inserts
+        res.json({ success: true, message: 'Package created successfully', packageId: newPackageId });
 
-        res.status(201).json({ 
-            message: 'Package created successfully', 
-            packageId: packageId 
-        });
     } catch (error) {
-        // Rollback transaction in case of error
-        await connection.rollback();
         console.error('Error creating package:', error);
-        res.status(500).json({ 
-            message: 'Error creating package', 
-            error: error.message 
-        });
-    } finally {
-        connection.release();
+        res.status(500).json({ message: 'Error creating package', error: error.message });
     }
 };
 
-// Update an existing package
+// Utility function for querying the database with Promises
+const queryDatabase = (query, params) => {
+    return new Promise((resolve, reject) => {
+        db.query(query, params, (err, results) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        });
+    });
+};
+
+
 const updatePackage = async (req, res) => {
     const { packageId } = req.params;
     const { 
         packageName, 
-        eventId, 
-        packageTierId, 
-        investedAmount, 
         coverageHours,
+        eventName, 
+        packageTier, 
+        investedAmount, 
         items,
         details
     } = req.body;
 
-    const connection = await db.promise().getConnection();
-
     try {
-        // Start transaction
-        await connection.beginTransaction();
+        // First, get the eventId from eventName
+        const sqlEventQuery = 'SELECT eventId FROM event WHERE eventName = ?';
+        const eventResults = await queryDatabase(sqlEventQuery, [eventName]);
+
+        if (eventResults.length === 0) {
+            return res.json({ success: false, message: "Event not found" });
+        }
+        const eventId = eventResults[0].eventId;
+
+        // Then, get the packageTierId from packageTier
+        const sqlTierQuery = 'SELECT packageTierId FROM packageTier WHERE packageTierName = ?';
+        const tierResults = await queryDatabase(sqlTierQuery, [packageTier]);
+
+        if (tierResults.length === 0) {
+            return res.json({ success: false, message: "Package tier not found" });
+        }
+        const packageTierId = tierResults[0].packageTierId;
 
         // Update package details
-        await connection.query(
-            'UPDATE package SET packageName = ?, eventId = ?, packageTierId = ?, investedAmount = ?, coverageHours = ? WHERE packageId = ?',
-            [packageName, eventId, packageTierId, investedAmount, coverageHours, packageId]
-        );
+        const sqlUpdatePackage = 'UPDATE package SET packageName = ?, eventId = ?, packageTierId = ?, investedAmount = ?, coverageHours = ? WHERE packageId = ?';
+        await queryDatabase(sqlUpdatePackage, [packageName, eventId, packageTierId, investedAmount, coverageHours, packageId]);
 
-        // Delete existing package items and details
-        await connection.query('DELETE FROM packageItems WHERE packageId = ?', [packageId]);
-        await connection.query('DELETE FROM packageDetails WHERE packageId = ?', [packageId]);
+        // Delete existing package items
+        const sqlDeleteItems = 'DELETE FROM packageItems WHERE packageId = ?';
+        await queryDatabase(sqlDeleteItems, [packageId]);
 
-        // Insert new package items
+        // Insert new package items if they exist
         if (items && items.length > 0) {
-            const itemInsertPromises = items.map(item => 
-                connection.query(
-                    'INSERT INTO packageItems (packageId, itemId, quantity) VALUES (?, ?, ?)',
-                    [packageId, item.itemId, item.quantity]
-                )
-            );
-            await Promise.all(itemInsertPromises);
+            await Promise.all(items.map(item => {
+                const sqlItemInsert = 'INSERT INTO packageItems (packageId, itemId, quantity) VALUES (?, ?, ?)';
+                return queryDatabase(sqlItemInsert, [packageId, item.itemId, item.quantity]);
+            }));
         }
 
-        // Insert new package details
+        // Delete existing package details
+        const sqlDeleteDetails = 'DELETE FROM packageDetails WHERE packageId = ?';
+        await queryDatabase(sqlDeleteDetails, [packageId]);
+
+        // Insert new package details if they exist
         if (details && details.length > 0) {
-            const detailInsertPromises = details.map(detailId => 
-                connection.query(
-                    'INSERT INTO packageDetails (packageId, detailId) VALUES (?, ?)',
-                    [packageId, detailId]
-                )
-            );
-            await Promise.all(detailInsertPromises);
+            await Promise.all(details.map(detailId => {
+                const sqlDetailInsert = 'INSERT INTO packageDetails (packageId, detailId) VALUES (?, ?)';
+                return queryDatabase(sqlDetailInsert, [packageId, detailId]);
+            }));
         }
 
-        // Commit transaction
-        await connection.commit();
+        // Send success response
+        res.json({ 
+            success: true, 
+            message: 'Package updated successfully', 
+            packageId: packageId 
+        });
 
-        res.json({ message: 'Package updated successfully' });
     } catch (error) {
-        // Rollback transaction in case of error
-        await connection.rollback();
         console.error('Error updating package:', error);
         res.status(500).json({ 
+            success: false,
             message: 'Error updating package', 
             error: error.message 
         });
-    } finally {
-        connection.release();
     }
 };
 
-// Delete a package
 const deletePackage = async (req, res) => {
     const { packageId } = req.params;
 
-    const connection = await db.promise().getConnection();
-
     try {
-        // Start transaction
-        await connection.beginTransaction();
+        // First, verify the package exists
+        const sqlCheckPackage = 'SELECT packageId FROM package WHERE packageId = ?';
+        const packageResults = await queryDatabase(sqlCheckPackage, [packageId]);
 
-        // Delete related entries in packageItems and packageDetails
-        await connection.query('DELETE FROM packageItems WHERE packageId = ?', [packageId]);
-        await connection.query('DELETE FROM packageDetails WHERE packageId = ?', [packageId]);
-
-        // Delete the package
-        const [result] = await connection.query('DELETE FROM package WHERE packageId = ?', [packageId]);
-
-        // Commit transaction
-        await connection.commit();
-
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Package not found' });
+        if (packageResults.length === 0) {
+            return res.json({ success: false, message: "Package not found" });
         }
 
-        res.json({ message: 'Package deleted successfully' });
+        // Delete related entries in packageItems
+        const sqlDeleteItems = 'DELETE FROM packageItems WHERE packageId = ?';
+        await queryDatabase(sqlDeleteItems, [packageId]);
+
+        // Delete related entries in packageDetails
+        const sqlDeleteDetails = 'DELETE FROM packageDetails WHERE packageId = ?';
+        await queryDatabase(sqlDeleteDetails, [packageId]);
+
+        // Delete the package
+        const sqlDeletePackage = 'DELETE FROM package WHERE packageId = ?';
+        await queryDatabase(sqlDeletePackage, [packageId]);
+
+        // Send success response
+        res.json({ 
+            success: true, 
+            message: 'Package deleted successfully',
+            packageId: packageId 
+        });
+
     } catch (error) {
-        // Rollback transaction in case of error
-        await connection.rollback();
         console.error('Error deleting package:', error);
         res.status(500).json({ 
+            success: false,
             message: 'Error deleting package', 
             error: error.message 
         });
-    } finally {
-        connection.release();
     }
 };
 
@@ -266,4 +299,5 @@ export {
     getEvents,
     getPackageTiers,
     getPackageItems,
+    getPackageDetails,
 };
