@@ -62,7 +62,7 @@ CREATE TABLE packageDetails (
 
 -- Insert Events
 INSERT INTO event (eventName, description) VALUES 
-('Wedding', 'Capturing the most special day of a couple\'s life'),
+('Wedding', "Capturing the most special day of a couple\'s life"),
 ('Homecoming', 'Celebrating return or milestone events'),
 ('Engagement', 'Pre-wedding celebration and photo session'),
 ('Birthday', 'Marking another year of life'),
@@ -125,3 +125,73 @@ INSERT INTO packageDetails (packageId, detailId) VALUES
 CREATE INDEX idx_event_name ON event(eventName);
 CREATE INDEX idx_package_name ON package(packageName);
 CREATE INDEX idx_item_type ON items(itemType);
+
+CREATE TABLE booking (
+    bookingId INT AUTO_INCREMENT PRIMARY KEY,
+    userID INT REFERENCES user(userID),
+    packageId INT REFERENCES package(packageID),
+    fullName VARCHAR(100) NOT NULL,
+    email VARCHAR(100) NOT NULL,
+    billingAddress TEXT NOT NULL,
+    billingMobile VARCHAR(20) NOT NULL,
+    eventDate DATE NOT NULL,
+    eventTime TIME NOT NULL,
+    venue VARCHAR(255) NOT NULL,
+    bookingStatus VARCHAR(255),
+    bookingType VARCHAR(255),
+    totalAmount DECIMAL(10, 2) NOT NULL,
+    paidAmount DECIMAL(10, 2) DEFAULT 0.00,
+    notes TEXT
+);
+
+INSERT INTO booking 
+(userID, packageId, fullName, email, billingAddress, billingMobile, eventDate, eventTime, venue, bookingStatus, bookingType, totalAmount, paidAmount, notes) 
+VALUES 
+(1, 3, 'Amal Perera', 'amal@example.com', '123 Main Street, Colombo 05', '0771234567', '2023-08-15', '14:00:00', 'Cinnamon Grand Colombo', 'confirmed', 'full', 150000.00, 150000.00, 'Wedding photography package with 2 photographers'),
+(2, 1, 'Nimal Silva', 'nimal@example.com', '45 Park Avenue, Kandy', '0712345678', '2023-09-22', '10:00:00', 'Queens Hotel Kandy', 'pending', 'advance', 85000.00, 20000.00, 'Pre-wedding photoshoot, beach location preferred'),
+(3, 2, 'Kamala Jayawardena', 'kamala@example.com', '78 Hill Street, Galle', '0761234567', '2023-07-30', '16:00:00', 'Lighthouse Galle', 'pencil', 'pencil', 65000.00, 0.00, 'Engagement ceremony, around 100 guests'),
+(1, 4, 'Sunil Dias', 'sunil@example.com', '22 Lake Road, Colombo 03', '0701234567', '2023-10-05', '09:00:00', 'Taj Samudra', 'confirmed', 'full', 200000.00, 200000.00, 'Corporate event photography with same-day editing'),
+(4, 2, 'Priya Fernando', 'priya@example.com', '56 Temple Road, Negombo', '0781234567', '2023-09-10', '18:00:00', 'Jetwing Blue Negombo', 'pending', 'advance', 125000.00, 20000.00, 'Birthday celebration, indoor venue');
+
+
+-- Create the Bank Deposit table
+CREATE TABLE BankDeposits (
+    bankDepositId INT AUTO_INCREMENT PRIMARY KEY,
+    referenceNo VARCHAR(100) NOT NULL,
+    depositDate DATE NOT NULL,
+    depositAmount DECIMAL(10, 2) NOT NULL,
+    receiptImage VARCHAR(255),
+    notes TEXT,
+);
+
+INSERT INTO BankDeposits 
+(referenceNo, depositDate, depositAmount, receiptImage, notes) 
+VALUES 
+('BOC12345678', '2023-06-15', 20000.00, 'uploads/receipts/receipt_boc_12345.jpg', 'Advance payment for wedding package'),
+('COM87654321', '2023-06-20', 20000.00, 'uploads/receipts/receipt_com_87654.jpg', 'Deposit for birthday event'),
+('NSB45678912', '2023-06-25', 150000.00, 'uploads/receipts/receipt_nsb_45678.jpg', 'Full payment for corporate event'),
+('PEO98765432', '2023-06-28', 65000.00, 'uploads/receipts/receipt_peo_98765.jpg', 'Payment for engagement shoot'),
+('HNB56781234', '2023-07-01', 200000.00, 'uploads/receipts/receipt_hnb_56781.jpg', 'Complete payment for Taj event');
+
+
+CREATE TABLE Payments (
+    paymentId INT AUTO_INCREMENT PRIMARY KEY,
+    bookingId INT NOT NULL REFERENCES booking(bookingId),
+    paymentAmount DECIMAL(10, 2) NOT NULL,
+    paymentDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    paymentMethod ENUM('credit_card', 'debit_card', 'cash_deposit') NOT NULL,
+    bankDepositId INT REFERENCES bankdeposits(bankdepositId),
+    paymentStatus ENUM('pending', 'completed', 'failed', 'refunded') NOT NULL DEFAULT 'pending',
+    notes TEXT
+);
+
+INSERT INTO Payments 
+(bookingId, paymentAmount, paymentDate, paymentMethod, bankDepositId, paymentStatus, notes) 
+VALUES 
+(1, 150000.00, '2023-06-25 14:30:00', 'cash_deposit', 3, 'completed', 'Full payment received and verified'),
+(2, 20000.00, '2023-06-15 10:15:00', 'cash_deposit', 1, 'completed', 'Advance payment received'),
+(3, 0.00, NULL, NULL, NULL, 'pending', 'Pencil booking, no payment required yet'),
+(4, 200000.00, '2023-07-01 16:45:00', 'cash_deposit', 5, 'completed', 'Full payment for corporate event'),
+(5, 20000.00, '2023-06-20 11:30:00', 'cash_deposit', 2, 'completed', 'Deposit received for birthday event'),
+(2, 65000.00, '2023-07-15 09:20:00', 'credit_card', NULL, 'completed', 'Remaining balance paid via credit card'),
+(5, 105000.00, '2023-07-25 13:10:00', 'debit_card', NULL, 'pending', 'Final payment scheduled before event');
