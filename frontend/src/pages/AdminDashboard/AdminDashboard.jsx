@@ -3,6 +3,7 @@ import './AdminDashboard.css';
 import { Calendar, BookOpen, Package, Users, CalendarDays } from 'lucide-react';
 import UserManagement from './UserManagemnet';
 import ManagePackages from './ManagePackages';
+import ManageBookings from './ManageBookings/ManageBookings';
 
 const AdminDashboard = () => {
   const [userData, setUserData] = useState(null);
@@ -87,7 +88,7 @@ const AdminDashboard = () => {
           {activeSection === 'bookings' && (
             <div className="section-container">
               <h2>Manage Bookings</h2>
-              {/* Add booking management content here */}
+              <ManageBookings />
             </div>
           )}
           {activeSection === 'packages' && (
