@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import './ManageBookings.css';
 import { Eye, Trash2, Edit, User, Calendar, Clock, MapPin, Package, CreditCard } from 'lucide-react';
 import axios from 'axios';
+import { StoreContext } from '../../../context/StoreContext';
 
 const ManageBookings = () => {
+    const { url } = useContext(StoreContext);
     const [bookings, setBookings] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -13,6 +15,7 @@ const ManageBookings = () => {
     const [alertType, setAlertType] = useState('success');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isAddBookingModalOpen, setIsAddBookingModalOpen] = useState(false);
+    const [packages, setPackages] = useState([]);
     const [editFormData, setEditFormData] = useState({
         fullName: '',
         email: '',
@@ -40,14 +43,15 @@ const ManageBookings = () => {
         paidAmount: 0,
         bookingStatus: '',
         bookingType: '',
-        notes: ''
+        notes: '',
+        packageId: ''
     };
 
     // Fetch all bookings
     const fetchBookings = async () => {
         try {
             setIsLoading(true);
-            const response = await fetch("http://localhost:4000/api/bookings");
+            const response = await fetch(`${url}/api/bookings`);
             const data = await response.json();
             setBookings(data);
             setError(null);
@@ -58,6 +62,16 @@ const ManageBookings = () => {
             setIsLoading(false);
         }
     };
+
+    // Fetch all packages
+    const fetchPackages = async () => {
+        try {
+        const response = await axios.get(`${url}/api/packages`);
+        setPackages(response.data);
+        } catch (error) {
+        console.error('Error fetching packages:', error);
+        }
+    }; 
 
     const showSuccessAlert = (message, type = 'success') => {
         setSuccessAlert(message);
@@ -90,7 +104,8 @@ const ManageBookings = () => {
         paidAmount: booking.paidAmount || 0,
         bookingStatus: booking.bookingStatus || 'pending',
         bookingType: booking.bookingType || 'pencil',
-        notes: booking.notes || ''
+        notes: booking.notes || '',
+        packageId: booking.packageId || ''
     });
     
     setSelectedBooking(booking);
@@ -100,11 +115,28 @@ const ManageBookings = () => {
     // Handle form input changes
     const handleEditFormChange = (e) => {
         const { name, value } = e.target;
+        
+        // If the package dropdown changes, update the total amount based on package price
+        if (name === 'packageId' && value) {
+          const selectedPackage = packages.find(pkg => pkg.packageId.toString() === value);
+          if (selectedPackage) {
+            setEditFormData(prev => ({
+              ...prev,
+              [name]: value,
+                totalAmount: selectedPackage.investedAmount || 0,
+                packageName: selectedPackage.packageName,
+                coverageHours: selectedPackage.coverageHours,
+                eventName: selectedPackage.eventName
+            }));
+            return;
+          }
+        }
+        
         setEditFormData(prev => ({
-            ...prev,
-            [name]: value
+          ...prev,
+          [name]: value
         }));
-    };
+      };
 
     const handleEditSubmit = async (e) => {
         e.preventDefault();
@@ -120,11 +152,11 @@ const ManageBookings = () => {
             // Check if we're editing or adding a new booking
             if (selectedBooking) {
                 // Editing existing booking
-                await axios.put(`http://localhost:4000/api/bookings/${selectedBooking.bookingId}`, bookingData);
+                await axios.put(`${url}/api/bookings/${selectedBooking.bookingId}`, bookingData);
                 showSuccessAlert(`Booking for "${bookingData.fullName}" updated successfully!`, 'update');
             } else {
                 // Adding new booking
-                await axios.post(`http://localhost:4000/api/bookings`, bookingData);
+                await axios.post(`${url}/api/bookings`, bookingData);
                 showSuccessAlert(`Booking for "${bookingData.fullName}" created successfully!`, 'success');
             }
             
@@ -148,7 +180,7 @@ const ManageBookings = () => {
         // Ask for confirmation before deleting
         if (window.confirm(`Are you sure you want to delete the booking for "${fullName}"?`)) {
             try {
-                await axios.delete(`http://localhost:4000/api/bookings/${bookingId}`);
+                await axios.delete(`${url}/api/bookings/${bookingId}`);
                 
                 // Show success message
                 showSuccessAlert(`Booking for "${fullName}" deleted successfully!`, 'delete');
@@ -226,6 +258,7 @@ const ManageBookings = () => {
 
     useEffect(() => {
         fetchBookings();
+        fetchPackages();
     }, []);
 
     if (isLoading) {
@@ -248,12 +281,6 @@ const ManageBookings = () => {
                 className="search-input"
             />
         </div>
-        <button 
-            className="add-booking-btn"
-            onClick={() => handleAddBooking()}
-        >
-            Add New Booking
-        </button>
     </div>
 
 
@@ -264,7 +291,7 @@ const ManageBookings = () => {
                     <th>Client</th>
                     <th>Event Date/Venue</th>
                     <th>Package</th>
-                    <th>Balance</th>
+                    <th>Amount</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -299,7 +326,7 @@ const ManageBookings = () => {
                         <td className="payment-cell">
                         <div className="payment-info">
                             <div className="payment-balance">
-                            {formatCurrency(booking.totalAmount - booking.paidAmount)}
+                            {formatCurrency(booking.investedAmount)}
                             </div>
                         </div>
                         </td>
@@ -374,9 +401,8 @@ const ManageBookings = () => {
                         
                         <div className="booking-detail-section">
                             <h3><CreditCard size={16} /> Payment Details</h3>
-                            <p><strong>Total Amount:</strong> {formatCurrency(selectedBooking.totalAmount)}</p>
-                            <p><strong>Paid Amount:</strong> {formatCurrency(selectedBooking.paidAmount)}</p>
-                            <p><strong>Balance:</strong> {formatCurrency(selectedBooking.totalAmount - selectedBooking.paidAmount)}</p>
+                            <p><strong>Total Amount:</strong> {formatCurrency(selectedBooking.investedAmount)}</p>
+                            <p><strong>Balance:</strong> {formatCurrency(selectedBooking.balanceAmount)}</p>
                             <p><strong>Booking Type:</strong> {selectedBooking.bookingType || "Not specified"}</p>
                             <p><strong>Booking Status:</strong> 
                                 <span className={`status-badge ${getStatusBadgeClass(selectedBooking.bookingStatus)}`}>
@@ -508,6 +534,23 @@ const ManageBookings = () => {
                                         onChange={handleEditFormChange}
                                         required
                                     />
+                                </div>
+                                <div className="form-group">
+                                <label htmlFor="packageId">Package</label>
+                                <select
+                                    id="packageId"
+                                    name="packageId"
+                                    value={editFormData.packageId}
+                                    onChange={handleEditFormChange}
+                                    required
+                                >
+                                    <option value="">Select a package</option>
+                                    {packages.map(pkg => (
+                                    <option key={pkg.packageId} value={pkg.packageId}>
+                                        {pkg.packageName} - {pkg.eventName} ({pkg.coverageHours} hours) - {formatCurrency(pkg.investedAmount)}
+                                    </option>
+                                    ))}
+                                </select>
                                 </div>
                             </div>
                             

@@ -13,7 +13,7 @@ import bookingRouter from './routes/bookingRoutes.js';
 dotenv.config();
 const app = express();
 // define the port number
-const port = process.env.PORT || 4000;
+const port = process.env.PORT;
 
 // middleware
 app.use(express.json());

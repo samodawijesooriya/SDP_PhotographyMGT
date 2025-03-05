@@ -5,7 +5,9 @@ import {
     getAllBookings,
     deleteBooking,
     updateBooking,
-    createBooking
+    createBooking,
+    getCalendarBookings,
+    getBookingsByDate
 } from '../controllers/bookingController.js';
 
 const bookingRouter = express.Router();
@@ -21,6 +23,11 @@ bookingRouter.put('/:id', updateBooking);
 
 // Create a booking
 bookingRouter.post('/', createBooking);
+
+bookingRouter.get('/calendar', getCalendarBookings);
+
+// Get booking by date
+bookingRouter.get('/date/:date', getBookingsByDate);
 
 export default bookingRouter;
 

@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import './ManagePackages.css';
 import { X, Trash2, Edit } from 'lucide-react';
 import axios from 'axios';
+import { StoreContext } from '../../context/StoreContext';
 
 const ManagePackages = () => {
+    const { url } = useContext(StoreContext);
     const [packages, setPackages] = useState([]);
     const [events, setEvents] = useState([]);
     const [packageTiers, setPackageTiers] = useState([]);
@@ -26,7 +28,7 @@ const ManagePackages = () => {
     const fetchPackages = async () => {
         try {
             setIsLoading(true);
-            const response = await fetch("http://localhost:4000/api/packages");
+            const response = await fetch(`${url}/api/packages`);
             const data = await response.json();
             setPackages(data);
             setError(null);
@@ -51,7 +53,7 @@ const ManagePackages = () => {
     // fetch all events 
     const fetchEvents = async () => {
         try {
-            const response = await fetch("http://localhost:4000/api/packages/events");
+            const response = await fetch(`${url}/api/packages/events`);
             const data = await response.json();
             setEvents(data);
         } catch (error) {
@@ -62,7 +64,7 @@ const ManagePackages = () => {
     // fetch all package tiers
     const fetchPackageTiers = async () => {
         try {
-            const response = await fetch("http://localhost:4000/api/packages/tiers");
+            const response = await fetch(`${url}/api/packages/tiers`);
             const data = await response.json();
             setPackageTiers(data);
         } catch (error) {
@@ -73,7 +75,7 @@ const ManagePackages = () => {
     // fetch package items
     const fetchPackageItems = async () => {
         try {
-            const response = await fetch("http://localhost:4000/api/packages/items");
+            const response = await fetch(`${url}/api/packages/items`);
             const data = await response.json();
             setPackageItems(data);
         } catch (error) {
@@ -84,7 +86,7 @@ const ManagePackages = () => {
     // fetch package details
     const fetchPackageDetails = async () => {
         try {
-            const response = await fetch("http://localhost:4000/api/packages/details");
+            const response = await fetch(`${url}/api/packages/details`);
             const data = await response.json();
             setPackageDetails(data);
         } catch (error) {
@@ -158,7 +160,7 @@ const ManagePackages = () => {
         // Ask for confirmation before deleting
         if (window.confirm(`Are you sure you want to delete the package "${packageName}"?`)) {
             try {
-                await axios.delete(`http://localhost:4000/api/packages/${packageId}`);
+                await axios.delete(`${url}/api/packages/${packageId}`);
                 
                 // Show success message
                 showSuccessAlert(`Package "${packageName}" deleted successfully!`, 'delete');
@@ -242,11 +244,11 @@ const ManagePackages = () => {
             let response;
             if (isEditMode && selectedPackage) {
                 // Update existing package
-                response = await axios.put(`http://localhost:4000/api/packages/${selectedPackage.packageId}`, packageData);
+                response = await axios.put(`${url}/api/packages/${selectedPackage.packageId}`, packageData);
                 showSuccessAlert(`Package "${packageData.packageName}" updated successfully!`, 'update');
             } else {
                 // Create new package
-                response = await axios.post('http://localhost:4000/api/packages/create', packageData);
+                response = await axios.post(`${url}/api/packages/create`, packageData);
                 showSuccessAlert(`Package "${packageData.packageName}" added successfully!`, 'success');
             }
 

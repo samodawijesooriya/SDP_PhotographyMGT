@@ -1,18 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import './AdminDashboard.css';
 import { Calendar, BookOpen, Package, Users, CalendarDays } from 'lucide-react';
 import UserManagement from './UserManagemnet';
 import ManagePackages from './ManagePackages';
 import ManageBookings from './ManageBookings/ManageBookings';
+import EventCalendar from './EventCalendar/EventCalendar';
+import Events from './Events/Events';
+import axios from 'axios';
+import { StoreContext } from '../../context/StoreContext';
 
 const AdminDashboard = () => {
+  const { url } = useContext(StoreContext);
   const [userData, setUserData] = useState(null);
   const [activeSection, setActiveSection] = useState('bookings');
+  const [todayEventsCount, setTodayEventsCount] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const storedUserData = JSON.parse(localStorage.getItem('userData'));
     setUserData(storedUserData);
+
+    // Check for today's events to display the notification badge
+    checkTodayEvents();
   }, []);
+
+  const checkTodayEvents = async () => {
+    try {
+      setLoading(true);
+      
+      // Format today's date as YYYY-MM-DD for API request
+      const today = new Date();
+      const formattedDate = today.toISOString().split('T')[0];
+      
+      const response = await axios.get(`${url}/api/bookings/date/${formattedDate}`);
+      
+      // Set the count of today's events for the notification badge
+      setTodayEventsCount(response.data.length || 0);
+    } catch (error) {
+      console.error('Error checking today\'s events:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="admin-dashboard">
@@ -66,8 +95,13 @@ const AdminDashboard = () => {
             }`}
             onClick={() => setActiveSection('events')}
           >
-            <div className="flex-shrink-0">
+            <div className="flex-shrink-0 relative">
               <Calendar className="w-5 h-5" />
+              {todayEventsCount > 0 && (
+                <span className="notification-badge">
+                  {todayEventsCount}
+                </span>
+              )}
             </div>
             <span>Events</span>
           </button>
@@ -106,13 +140,13 @@ const AdminDashboard = () => {
           {activeSection === 'events' && (
             <div className="section-container">
               <h2>Events</h2>
-              {/* Add events content here */}
+              <Events />
             </div>
           )}
           {activeSection === 'calendar' && (
             <div className="section-container">
               <h2>Event Calendar</h2>
-              {/* Add calendar content here */}
+              <EventCalendar />
             </div>
           )}
         </main>

@@ -1,4 +1,5 @@
 import { createContext, useState } from "react";
+import { API_URL } from "../../config/config";
 
 // Create context with default values
 export const StoreContext = createContext({
@@ -13,7 +14,7 @@ export const StoreContext = createContext({
 
 export const StoreContextProvider = ({ children }) => {
     // States
-    const [url] = useState("http://localhost:4000");
+    const [url] = useState(API_URL);
     const [user, setUser] = useState(null);
     const [token, setToken] = useState(localStorage.getItem('token') || null);
 

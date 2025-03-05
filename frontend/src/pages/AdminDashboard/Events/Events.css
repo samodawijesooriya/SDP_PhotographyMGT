@@ -1,0 +1,250 @@
+/* Events Component Basic Styling */
+.events-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+}
+
+/* Events Tabs */
+.events-tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.events-tab {
+    flex: 1;
+    padding: 10px 15px;
+    background-color: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #6c757d;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.events-tab:hover {
+    color: #007bff;
+}
+
+.events-tab.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+}
+
+.date-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px;
+    background-color: #f4f4f4;
+    border-radius: 5px;
+}
+
+.today-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.nav-button {
+    background: none;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    width: 80px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #555;
+}
+
+.nav-button:hover, 
+.today-button:hover {
+    background-color: #0056b3;
+    color: white;
+}
+
+.events-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.events-header h3 {
+    margin: 0;
+    font-size: 24px;
+}
+
+.events-count {
+    color: #6c757d;
+}
+
+.loading-events {
+    text-align: center;
+    color: #007bff;
+    padding: 20px;
+}
+
+.event-card {
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+}
+
+.event-card:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.event-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.event-card-header h4 {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+}
+
+.event-status {
+    text-transform: uppercase;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 3px;
+}
+
+.event-status.pending {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.event-status.confirmed {
+    background-color: #28a745;
+    color: #fff;
+}
+
+.event-status.completed {
+    background-color: #28a745;
+    color: #fff;
+}
+
+.event-status.cancelled {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+.event-card-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.event-detail {
+    display: flex;
+    align-items: center;
+}
+
+.event-detail strong {
+    margin-right: 5px;
+    color: #6c757d;
+    min-width: 90px;
+}
+
+.event-detail-value {
+    color: #333;
+}
+
+.event-notes {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #e0e0e0;
+    font-style: italic;
+    color: #6c757d;
+}
+
+.no-events-message {
+    text-align: center;
+    color: #6c757d;
+    padding: 20px;
+}
+
+.no-events-icon {
+    opacity: 0.5;
+    margin-bottom: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 600px) {
+    .events-tabs {
+        flex-direction: column;
+    }
+
+    .events-tab {
+        border-bottom: 1px solid #e0e0e0;
+        margin-bottom: 5px;
+    }
+
+    .event-card-details {
+        grid-template-columns: 1fr;
+    }
+    
+    .date-navigation {
+        flex-direction: column;
+    }
+    
+    .nav-button, 
+    .today-button {
+        width: 100%;
+        margin: 5px 0;
+    }
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.event-card {
+    animation: fadeIn 0.5s ease;
+}
+
+/* Utility Classes */
+.text-gray {
+    color: #6c757d;
+}
+
+.text-muted {
+    color: #868e96;
+}
+
+/* Additional Hover Effects */
+.event-detail {
+    transition: background-color 0.2s ease;
+    border-radius: 3px;
+    padding: 2px 5px;
+}
+
+.event-detail:hover {
+    background-color: #f4f4f4;
+}

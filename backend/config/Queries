@@ -195,3 +195,77 @@ VALUES
 (5, 20000.00, '2023-06-20 11:30:00', 'cash_deposit', 2, 'completed', 'Deposit received for birthday event'),
 (2, 65000.00, '2023-07-15 09:20:00', 'credit_card', NULL, 'completed', 'Remaining balance paid via credit card'),
 (5, 105000.00, '2023-07-25 13:10:00', 'debit_card', NULL, 'pending', 'Final payment scheduled before event');
+
+
+
+// after dinesh sir's comments on (2025/03/03)
+-- Customer Table
+CREATE TABLE Customer (
+    customerId INT PRIMARY KEY AUTO_INCREMENT,
+    fullName VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    billingAddress VARCHAR(255),
+    billingMobile VARCHAR(20)
+);
+
+-- Package Table (assuming this exists, adding for reference)
+CREATE TABLE Package (
+    packageId INT PRIMARY KEY AUTO_INCREMENT,
+    packageName VARCHAR(100) NOT NULL,
+    packageDescription TEXT,
+    packagePrice DECIMAL(10, 2) NOT NULL,
+    isActive BOOLEAN DEFAULT TRUE
+);
+
+-- Booking Table
+CREATE TABLE Booking (
+    bookingId INT PRIMARY KEY AUTO_INCREMENT,
+    customerId INT NOT NULL,
+    packageId INT NOT NULL,
+    eventDate DATE NOT NULL,
+    eventTime TIME NOT NULL,
+    venue VARCHAR(255) NOT NULL,
+    bookingStatus ENUM('Pending', 'Confirmed', 'Cancelled', 'Completed') NOT NULL DEFAULT 'Pending',
+    bookingType ENUM('Wedding', 'Corporate', 'Birthday', 'Other') NOT NULL,
+    
+    notes TEXT,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (customerId) REFERENCES Customer(customerId) ON DELETE RESTRICT,
+    FOREIGN KEY (packageId) REFERENCES Package(packageId) ON DELETE RESTRICT
+);
+
+-- Credit Card Table
+CREATE TABLE CreditCard (
+    creditCardId INT PRIMARY KEY AUTO_INCREMENT,
+    customerId INT NOT NULL,
+    cardholderName VARCHAR(100) NOT NULL,
+    cardNumber VARCHAR(255) NOT NULL, -- should be encrypted in production
+    expiryDate VARCHAR(7) NOT NULL, -- stored as MM/YYYY
+    cvv VARCHAR(255), -- should be encrypted in production and probably not stored long-term
+    FOREIGN KEY (customerId) REFERENCES Customer(customerId) ON DELETE CASCADE
+);
+
+-- Payment Table
+CREATE TABLE Payment (
+    paymentId INT PRIMARY KEY AUTO_INCREMENT,
+    bookingId INT NOT NULL,
+    paymentAmount DECIMAL(10, 2) NOT NULL,
+    paymentDate DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    paymentMethod VARCHAR(50) NOT NULL,
+    bankDepositId INT,
+    creditCardId INT,
+    paymentStatus VARCHAR(50) NOT NULL,
+    notes TEXT,
+    FOREIGN KEY (bankDepositId) REFERENCES bankDeposits(bankDepositId) ON DELETE RESTRICT,
+    FOREIGN KEY (bookingId) REFERENCES booking(bookingId) ON DELETE RESTRICT,
+    FOREIGN KEY (creditCardId) REFERENCES creditCard(creditCardId) ON DELETE SET NULL
+);
+
+-- Additional indexes for better performance
+CREATE INDEX idx_booking_customer ON Booking(customerId);
+CREATE INDEX idx_booking_status ON Booking(bookingStatus);
+CREATE INDEX idx_booking_date ON Booking(eventDate);
+CREATE INDEX idx_payment_booking ON Payment(bookingId);
+CREATE INDEX idx_payment_status ON Payment(paymentStatus);
+CREATE INDEX idx_creditcard_customer ON CreditCard(customerId);

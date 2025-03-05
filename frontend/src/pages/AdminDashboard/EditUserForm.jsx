@@ -1,10 +1,12 @@
 // EditUserForm.jsx
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { X } from 'lucide-react';
 import axios from 'axios';
 import './EditUserForm.css';
+import { StoreContext } from '../../context/StoreContext';
 
 const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
+  const {url} = useContext(StoreContext);
   const [formData, setFormData] = useState({
     username: user.username || '',
     email: user.email || '',
@@ -32,7 +34,7 @@ const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
 
     try {
         console.log('User:', user.userID);
-      const response = await axios.put(`http://localhost:4000/api/user/${user.userID}`, formData, {
+      const response = await axios.put(`${url}/api/user/${user.userID}`, formData, {
         headers: {
           'Content-Type': 'application/json'
         }

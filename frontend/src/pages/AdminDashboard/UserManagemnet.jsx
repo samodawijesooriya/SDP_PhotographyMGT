@@ -20,9 +20,10 @@ const UserManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch("http://localhost:4000/api/user/allusers");
+      const response = await fetch(`${url}/api/user/allusers`);
       const data = await response.json();
       setUsers(data);
+      console.log(data);
       setLoading(false);
     } catch (err) {
       setError(err.message);
@@ -43,7 +44,7 @@ const UserManagement = () => {
   const handleDeleteUser = async (userId) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        await axios.delete(`http://localhost:4000/api/user/${userId}`);
+        await axios.delete(`${url}/user/${userId}`);
         fetchUsers();
         showSuccessAlert(`User deleted successfully!`, "delete");
       } catch (err) {

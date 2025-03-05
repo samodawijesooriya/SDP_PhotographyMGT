@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { X } from 'lucide-react';
 import axios from 'axios';
 import './AddUserForm.css';
+import { StoreContext } from '../../context/StoreContext';
 
 const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
+  const { url } = useContext(StoreContext);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -30,7 +32,7 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
     setError('');
 
     try {
-      const response = await axios.post('http://localhost:4000/api/user/create', formData, {
+      const response = await axios.post(`${url}/api/user/create`, formData, {
         headers: {
           'Content-Type': 'application/json'
         }
