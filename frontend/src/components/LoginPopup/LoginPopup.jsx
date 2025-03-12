@@ -45,7 +45,7 @@ const Login = ({setShowLogin}) => {
         localStorage.setItem("userData", JSON.stringify(response.data.user));
         
         // Check if user is a photographer
-        if(response.data.user.role === 'photographer') {
+        if(response.data.user.role == 'photographer') {
           setShowLogin(false);
           navigate('/admin-dashboard');
         } else {

@@ -12,7 +12,7 @@ const createToken = (id) => {
 // register user
 const registerUser = async (req, res) => {
     const { username, email, password, mobile } = req.body;
-    const role = req.body.role || 'customer';
+    const role = 'customer';
 
     try {
         // Check if the user already exists
@@ -44,12 +44,15 @@ const registerUser = async (req, res) => {
             // const hashedPassword = await bcrypt.hash(password, salt);
 
             // Generate new user ID
-            const sqlId = 'SELECT COALESCE(MAX(userID), 0) AS maxId FROM user';
+            const sqlId = 'SELECT userID FROM user ORDER BY userID DESC LIMIT 1';
             db.query(sqlId, (err, result) => {
                 if (err) {
                     return res.json({ success: false, message: "An error occurred while generating a new ID" });
                 }
-                const newId = result[0].maxId + 1;
+                let newId = 1;
+                if (result.length > 0) {
+                    newId = result[0].userID + 1;
+                }
                 
                 // Insert new user
                 const sqlInsert = 'INSERT INTO user (userID, username, email, password, role, mobile) VALUES (?, ?, ?, ?, ?, ?)';
@@ -60,7 +63,15 @@ const registerUser = async (req, res) => {
 
                     // Create a token
                     const token = createToken(newId);
-                    res.json({ success: true, token: token });
+                    res.json({
+                        success: true,
+                        token: token,
+                        user: {
+                            username: username,
+                            email: email,
+                            role: role
+                        }
+                    });
                 });
             });
         });

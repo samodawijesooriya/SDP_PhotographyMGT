@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Bell, Calendar, Clock, MapPin, User, Phone } from 'lucide-react';
+import { Bell, Calendar, Clock, MapPin, User, Phone, Edit, Save, X } from 'lucide-react';
 import './Events.css';
+import axios from 'axios';
 import { StoreContext } from '../../../context/StoreContext';
 
 const Events = () => {
@@ -9,6 +10,9 @@ const Events = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [editingEvent, setEditingEvent] = useState(null);
+  const [editNotes, setEditNotes] = useState('');
+  const [editStatus, setEditStatus] = useState('');
 
   useEffect(() => {
     fetchEvents(selectedDate);
@@ -23,7 +27,6 @@ const Events = () => {
       const formattedDate = date.toISOString().split('T')[0];
       
       const response = await fetch(`${url}/api/bookings/date/${formattedDate}`);
-      
       if (!response.ok) {
         throw new Error('Failed to fetch events');
       }
@@ -46,6 +49,56 @@ const Events = () => {
       setError('Failed to fetch events. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Start editing an event
+  const startEditing = (event) => {
+    setEditingEvent(event.bookingId);
+    setEditNotes(event.notes || '');
+    setEditStatus(event.bookingStatus);
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingEvent(null);
+    setEditNotes('');
+    setEditStatus('');
+  };
+
+  // Save event changes
+  const saveEventChanges = async (event) => {
+    try {
+      const updatedEvent = {
+        ...event,
+        eventDate: new Date(),
+        notes: editNotes,
+        bookingStatus: editStatus
+      };
+
+      console.log(event.eventDate);
+      // using axios to send a PUT request to update the event
+      const response = await axios.put(
+        `${url}/api/bookings/${event.bookingId}`, 
+        updatedEvent,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      // Update the local state with response data
+      setEvents(prevEvents => 
+        prevEvents.map(e => 
+          e.bookingId === event.bookingId ? response.data || updatedEvent : e
+        )
+      );
+      setEditingEvent(null);
+      fetchEvents(selectedDate);
+    }catch (error) {
+      console.error('Error updating event:', error);
+      setError('Failed to update event. Please try again.');
     }
   };
 
@@ -83,6 +136,12 @@ const Events = () => {
     } catch {
       return "Invalid Time";
     }
+  };
+
+  // Get status class for select element
+  const getStatusSelectClass = (status) => {
+    const statusLower = status.toLowerCase();
+    return `status-select ${statusLower}`;
   };
 
   return (
@@ -126,41 +185,98 @@ const Events = () => {
               <p>No events scheduled for this day</p>
             </div>
           ) : (
-            <div>
+            <div className="events-grid">
               {events.map(event => (
                 <div key={event.bookingId} className="event-card">
                   <div className="event-card-header">
                     <h4>{event.eventName || event.packageName || "Untitled Event"}</h4>
-                    <span className={`event-status ${event.bookingStatus.toLowerCase()}`}>
-                      {event.bookingStatus}
-                    </span>
+                    {editingEvent === event.bookingId ? (
+                      <select 
+                        className={getStatusSelectClass(editStatus)}
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value)}
+                      >
+                        <option value="PENDING">Pending</option>
+                        <option value="CONFIRMED">Confirmed</option>
+                        <option value="COMPLETED">Completed</option>
+                        <option value="CANCELLED">Cancelled</option>
+                        <option value="DONE">Done</option>
+                      </select>
+                    ) : (
+                      <span className={`event-status ${event.bookingStatus?.toLowerCase() || ''}`}>
+                        {event.bookingStatus || 'Not Set'}
+                      </span>
+                    )}
                   </div>
                   
                   <div className="event-card-details">
                     <div className="event-detail">
-                      <strong>Client:</strong> {event.fullName || "Not provided"}
+                      <strong>Client:</strong> <span className="event-detail-value">{event.fullName || "Not provided"}</span>
                     </div>
                     <div className="event-detail">
-                      <strong>Time:</strong> {formatTime(event.eventTime)}
+                      <strong>Time:</strong> <span className="event-detail-value">{formatTime(event.eventTime)}</span>
                     </div>
                     <div className="event-detail">
-                      <strong>Venue:</strong> {event.venue || "Not specified"}
+                      <strong>Venue:</strong> <span className="event-detail-value">{event.venue || "Not specified"}</span>
                     </div>
                     {event.coverageHours && (
                       <div className="event-detail">
-                        <strong>Coverage:</strong> {event.coverageHours} hours
+                        <strong>Coverage:</strong> <span className="event-detail-value">{event.coverageHours} hours</span>
                       </div>
                     )}
                     <div className="event-detail">
-                      <strong>Contact:</strong> {event.billingMobile || "Not available"}
+                      <strong>Contact:</strong> <span className="event-detail-value">{event.billingMobile || "Not available"}</span>
                     </div>
                   </div>
 
-                  {event.notes && (
-                    <div className="event-notes text-muted">
-                      <strong>Notes:</strong> {event.notes}
+                  {editingEvent === event.bookingId ? (
+                    <div className="event-notes-edit">
+                      <label htmlFor="notes">Notes:</label>
+                      <textarea 
+                        id="notes"
+                        value={editNotes}
+                        onChange={(e) => setEditNotes(e.target.value)}
+                        rows="3"
+                        className="notes-textarea"
+                        placeholder="Add notes here..."
+                      />
                     </div>
+                  ) : (
+                    event.notes && (
+                      <div className="event-notes text-muted">
+                        <strong>Notes:</strong> {event.notes}
+                      </div>
+                    )
                   )}
+
+                  <div className="event-actions">
+                    {editingEvent === event.bookingId ? (
+                      <>
+                        <button 
+                          className="action-button save-button"
+                          onClick={() => saveEventChanges(event)}
+                        >
+                          <Save size={16} />
+                          Save
+                        </button>
+                        <button 
+                          className="action-button cancel-button"
+                          onClick={cancelEditing}
+                        >
+                          <X size={16} />
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button 
+                        className="action-button edit-button"
+                        onClick={() => startEditing(event)}
+                      >
+                        <Edit size={16} />
+                        Edit
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

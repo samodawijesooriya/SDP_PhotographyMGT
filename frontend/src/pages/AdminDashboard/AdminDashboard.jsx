@@ -103,7 +103,7 @@ const AdminDashboard = () => {
                 </span>
               )}
             </div>
-            <span>Events</span>
+            <span>Today's Event</span>
           </button>
           <button 
             className={`w-full text-left p-4 mb-2 rounded flex items-center space-x-4 ${
