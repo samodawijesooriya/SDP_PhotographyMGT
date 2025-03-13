@@ -199,14 +199,15 @@ VALUES
 
 
 // after dinesh sir's comments on (2025/03/03)
+// this one removed
 -- Customer Table
-CREATE TABLE Customer (
-    customerId INT PRIMARY KEY AUTO_INCREMENT,
-    fullName VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
-    billingAddress VARCHAR(255),
-    billingMobile VARCHAR(20)
-);
+-- CREATE TABLE Customer (
+--     customerId INT PRIMARY KEY AUTO_INCREMENT,
+--     fullName VARCHAR(100) NOT NULL,
+--     email VARCHAR(100) UNIQUE NOT NULL,
+--     billingAddress VARCHAR(255),
+--     billingMobile VARCHAR(20)
+-- );
 
 -- Package Table (assuming this exists, adding for reference)
 CREATE TABLE Package (
@@ -260,6 +261,17 @@ CREATE TABLE Payment (
     FOREIGN KEY (bankDepositId) REFERENCES bankDeposits(bankDepositId) ON DELETE RESTRICT,
     FOREIGN KEY (bookingId) REFERENCES booking(bookingId) ON DELETE RESTRICT,
     FOREIGN KEY (creditCardId) REFERENCES creditCard(creditCardId) ON DELETE SET NULL
+);
+
+// new customer
+
+CREATE TABLE customers (
+    customer_id INT PRIMARY KEY, -- Same as user_id
+    full_name VARCHAR(100) NOT NULL,
+    address TEXT NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(20),
+    FOREIGN KEY (customer_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 -- Additional indexes for better performance

@@ -20,7 +20,7 @@ const getAllBookings = async (req, res) => {
 FROM 
     Booking b
 JOIN 
-    Customer c ON b.customerId = c.customerId
+    Customers c ON b.customerId = c.customerId
 LEFT JOIN 
     Package p ON b.packageId = p.packageId
 LEFT JOIN 
@@ -153,7 +153,7 @@ const updateBooking = async (req, res) => {
         
         // Update customer information
         const updateCustomerQuery = `
-          UPDATE customer SET
+          UPDATE Customers SET
             fullName = ?,
             email = ?,
             billingAddress = ?,
@@ -261,7 +261,7 @@ const createBooking = async (req, res) => {
       }
       
       // First, create or find the customer
-      const findCustomerQuery = 'SELECT customerId FROM Customer WHERE email = ?';
+      const findCustomerQuery = 'SELECT customerId FROM Customers WHERE email = ?';
       
       db.query(findCustomerQuery, [email], (findErr, findResults) => {
         if (findErr) {
@@ -276,7 +276,7 @@ const createBooking = async (req, res) => {
         // If customer doesn't exist, create a new one
         if (findResults.length === 0) {
           const createCustomerQuery = `
-            INSERT INTO Customer (fullName, email, billingAddress, billingMobile)
+            INSERT INTO Customers (fullName, email, billingAddress, billingMobile)
             VALUES (?, ?, ?, ?)
           `;
           
@@ -298,7 +298,7 @@ const createBooking = async (req, res) => {
           customerId = findResults[0].customerId;
           
           const updateCustomerQuery = `
-            UPDATE Customer SET
+            UPDATE Customers SET
               fullName = ?,
               billingAddress = ?,
               billingMobile = ?
@@ -369,7 +369,7 @@ const createBooking = async (req, res) => {
                 SELECT b.*, c.fullName, c.email, c.billingAddress, c.billingMobile,
                        p.packageName, p.coverageHours, e.eventName
                 FROM Booking b
-                JOIN Customer c ON b.customerId = c.customerId
+                JOIN Customers c ON b.customerId = c.customerId
                 LEFT JOIN Package p ON b.packageId = p.packageId
                 LEFT JOIN Event e ON p.eventId = e.eventId
                 WHERE b.bookingId = ?
@@ -420,7 +420,7 @@ const getCalendarBookings = async (req, res) => {
         p.coverageHours, 
         e.eventName
       FROM Booking b
-      JOIN Customer c ON b.customerId = c.customerId
+      JOIN Customers c ON b.customerId = c.customerId
       LEFT JOIN Package p ON b.packageId = p.packageId
       LEFT JOIN Event e ON p.eventId = e.eventId
       WHERE b.bookingStatus IN ('Pending', 'Confirmed')
@@ -500,7 +500,7 @@ const getBookingsByDate = async (req, res) => {
         SELECT b.*, c.fullName, c.email, c.billingAddress, c.billingMobile,
                p.packageName, p.coverageHours, e.eventName
         FROM Booking b
-        JOIN Customer c ON b.customerId = c.customerId
+        JOIN Customers c ON b.customerId = c.customerId
         LEFT JOIN Package p ON b.packageId = p.packageId
         LEFT JOIN Event e ON p.eventId = e.eventId
         WHERE DATE(b.eventDate) = DATE(?)
