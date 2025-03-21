@@ -1,17 +1,16 @@
-// EditUserForm.jsx
 import React, { useState, useContext } from 'react';
 import { X } from 'lucide-react';
 import axios from 'axios';
-import './EditUserForm.css';
-import { StoreContext } from '../../context/StoreContext';
+import './AddCustomerForm.css';
+import { StoreContext } from '../../../context/StoreContext';
 
-const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
-  const {url} = useContext(StoreContext);
+const AddCustomerForm = ({ isOpen, onClose, onCustomerAdded }) => {
+  const { url } = useContext(StoreContext);
   const [formData, setFormData] = useState({
-    username: user.username || '',
-    email: user.email || '',
-    mobile: user.mobile || '',
-    role: user.role || 'customer'
+    fullName: '',
+    billingAddress: '',
+    email: '',
+    billingMobile: ''
   });
   
   const [error, setError] = useState('');
@@ -30,25 +29,21 @@ const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setSuccess('');
 
     try {
-        console.log('User:', user.userID);
-      const response = await axios.put(`${url}/api/user/${user.userID}`, formData, {
+      const response = await axios.post(`${url}/api/customers/register`, formData, {
         headers: {
           'Content-Type': 'application/json'
         }
       });
 
-      setSuccess('User updated successfully!');
-      onUserUpdated(response.data);
+      console.log('Token:', response.data.token);
+      console.log('Success message:', 'Customer created successfully!');
+      onCustomerAdded(response.data); // Changed from data to response.data
       
-      setTimeout(() => {
-        onClose();
-      }, 1500);
 
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Failed to update user');
+      setError(err.response?.data?.message || err.message || 'Failed to create customer');
     } finally {
       setLoading(false);
     }
@@ -63,10 +58,11 @@ const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
   };
 
   return (
+    
     <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Edit User</h2>
+          <h2>Add New Customer</h2>
           <div 
             onClick={onClose} 
             className="close-button"
@@ -82,16 +78,30 @@ const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
           </div>
         </div>
 
+
+
         {error && <div className="error-message">{error}</div>}
         {success && <div className="success-message">{success}</div>}
 
-        <form onSubmit={handleSubmit} className="edit-user-form">
+
+        <form onSubmit={handleSubmit} className="add-user-form">
           <div className="form-group">
-            <label>Username</label>
+            <label>Full Name</label>
             <input
               type="text"
-              name="username"
-              value={formData.username}
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Billing Address</label>
+            <input
+              type="text"
+              name="billingAddress"
+              value={formData.billingAddress}
               onChange={handleChange}
               required
             />
@@ -109,27 +119,14 @@ const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
           </div>
 
           <div className="form-group">
-            <label>Mobile</label>
+            <label>Billing Mobile</label>
             <input
               type="tel"
-              name="mobile"
-              value={formData.mobile}
+              name="billingMobile"
+              value={formData.billingMobile}
               onChange={handleChange}
               required
             />
-          </div>
-
-          <div className="form-group">
-            <label>Role</label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-            >
-              <option value="customer">Customer</option>
-              <option value="photographer">Photographer</option>
-              <option value="admin">Admin</option>
-            </select>
           </div>
 
           <div className="form-actions">
@@ -145,13 +142,14 @@ const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
               disabled={loading}
               className="submit-button"
             >
-              {loading ? 'Updating...' : 'Update User'}
+              {loading ? 'Adding...' : 'Add Customer'}
             </button>
           </div>
         </form>
       </div>
+      
     </div>
   );
 };
 
-export default EditUserForm;
+export default AddCustomerForm;

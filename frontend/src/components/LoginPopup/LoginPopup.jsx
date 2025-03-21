@@ -44,10 +44,15 @@ const Login = ({setShowLogin}) => {
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("userData", JSON.stringify(response.data.user));
         
+        window.dispatchEvent(new Event('storage'));
+
         // Check if user is a photographer
-        if(response.data.user.role == 'photographer') {
+        if(response.data.user.role === 'photographer') {
           setShowLogin(false);
           navigate('/admin-dashboard');
+        } else if(response.data.user.role === 'admin') {
+          setShowLogin(false);
+          navigate('/userView');
         } else {
           setShowLogin(false);
           navigate('/');

@@ -12,6 +12,7 @@ import Album from './pages/Albums/Album'
 import Booking from './pages/Booking/Booking'
 import Events from './pages/Events/Events'
 import AdminDashboard from './pages/AdminDashboard/AdminDashboard'
+import UserView from './pages/AdminView/UserView/UserView'
 
 const App = () => {
 
@@ -33,6 +34,8 @@ const App = () => {
         <Route path='/booking' element={<Booking />} />
         <Route path="/events" element={<Events />} />
         <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/userView" element={<UserView />}
+        />
       </Routes>
     </div>
     </>

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Search, Edit, Trash2, UserPlus, Mail, Phone } from "lucide-react";
-import { StoreContext } from "../../context/StoreContext";
+import { Search, Edit, Trash2, UserPlus, Mail, Phone, Filter } from "lucide-react";
+import { StoreContext } from "../../../context/StoreContext";
 import axios from "axios";
-import "./UserManagement.css";
+import "./UserView.css";
 import AddUserForm from "./AddUserForm";
 import EditUserForm from "./EditUserForm";
 
-const UserManagement = () => {
+const UserView = () => {
   const [users, setUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -17,6 +17,10 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [successAlert, setSuccessAlert] = useState(null);
   const [alertType, setAlertType] = useState("success");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [password, setpassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [selectedRole, setSelectedRole] = useState("all");
 
   const fetchUsers = async () => {
     try {
@@ -65,10 +69,21 @@ const UserManagement = () => {
     showSuccessAlert(`User added successfully!`, "success");
   };
 
+  const uniqueRoles = [...new Set(users.map(user => user.role))];
+
   const filteredUsers = users.filter(
-    (user) =>
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    (user) => {
+        // Apply search filter
+        const matchesSearch = 
+          user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.email.toLowerCase().includes(searchTerm.toLowerCase());
+        
+        // Apply role filter
+        const matchesRole = selectedRole === "all" || user.role === selectedRole;
+        
+        // Return true if both filters match
+        return matchesSearch && matchesRole;
+      }
   );
 
   useEffect(() => {
@@ -103,6 +118,22 @@ const UserManagement = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+
+        {/* Role filter dropdown */}
+        <div className="filter-wrapper">
+          <Filter size={16} />
+          <select 
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+            className="role-filter"
+          >
+            <option value="all">All Roles</option>
+            {uniqueRoles.map(role => (
+              <option key={role} value={role}>{role}</option>
+            ))}
+          </select>
+        </div>
+
         <div 
           className="btn-add"
           onClick={() => setIsAddUserFormOpen(true)}
@@ -202,4 +233,4 @@ const UserManagement = () => {
   );
 };
 
-export default UserManagement;
+export default UserView;

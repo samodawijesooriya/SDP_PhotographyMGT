@@ -1,28 +1,29 @@
 import React, { useState, useEffect, useContext } from "react";
 import { Search, Edit, Trash2, UserPlus, Mail, Phone } from "lucide-react";
-import { StoreContext } from "../../context/StoreContext";
+import { StoreContext } from "../../../context/StoreContext";
 import axios from "axios";
-import "./UserManagement.css";
-import AddUserForm from "./AddUserForm";
-import EditUserForm from "./EditUserForm";
+import "./CustomerManagement.css";
+import AddUserForm from "../../AdminView/UserView/AddUserForm";
+import EditUserForm from "../../AdminView/UserView/EditUserForm";
+import AddCustomerForm from "./AddCustomerForm";
 
-const UserManagement = () => {
-  const [users, setUsers] = useState([]);
+const CustomerManagement = () => {
+  const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { url } = useContext(StoreContext);
-  const [isAddUserFormOpen, setIsAddUserFormOpen] = useState(false);
-  const [isEditUserFormOpen, setIsEditUserFormOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [isAddCustomerFormOpen, setIsAddCustomerFormOpen] = useState(false);
+  const [isEditCustomerFormOpen, setIsEditCustomerFormOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [successAlert, setSuccessAlert] = useState(null);
   const [alertType, setAlertType] = useState("success");
 
-  const fetchUsers = async () => {
+  const fetchCustomers = async () => {
     try {
-      const response = await fetch(`${url}/api/user/allusers`);
+      const response = await fetch(`${url}/api/customers/allcustomers`);
       const data = await response.json();
-      setUsers(data);
+      setCustomers(data);
       console.log(data);
       setLoading(false);
     } catch (err) {
@@ -41,38 +42,38 @@ const UserManagement = () => {
     }, 5000);
   };
 
-  const handleDeleteUser = async (userId) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
+  const handleDeleteCustomer = async (userId) => {
+    if (window.confirm('Are you sure you want to delete this Customer?')) {
       try {
-        await axios.delete(`${url}/api/user/${userId}`);
-        fetchUsers();
-        showSuccessAlert(`User deleted successfully!`, "delete");
+        await axios.delete(`${url}/api/customer/${userId}`);
+        fetchCustomers();
+        showSuccessAlert(`Customer deleted successfully!`, "delete");
       } catch (err) {
         setError(err.message);
       }
     }
   };
 
-  const handleEditUser = (user) => {
-    setSelectedUser(user);
-    setIsEditUserFormOpen(true);
+  const handleEditCustomer = (customers) => {
+    setSelectedCustomer(customers);
+    setIsEditCustomerFormOpen(true);
   };
 
-  const handleUserUpdated = () => {
-    fetchUsers();
-    setIsEditUserFormOpen(false);
-    setSelectedUser(null);
-    showSuccessAlert(`User added successfully!`, "success");
+  const handleCustomerUpdated = () => {
+    fetchCustomers();
+    setIsEditCustomerFormOpen(false);
+    setSelectedCustomer(null);
+    showSuccessAlert(`Customer added successfully!`, "success");
   };
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCustomers = customers.filter(
+    (customer) =>
+      customer.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   useEffect(() => {
-    fetchUsers();
+    fetchCustomers();
   }, []);
 
   if (loading) {
@@ -92,45 +93,45 @@ const UserManagement = () => {
   }
 
   return (
-    <div className="users-page">
+    <div className="customers-page">
       <div className="top-bar">
         <div className="search-wrapper">
           
           <input
             type="text"
-            placeholder="Search users..."
+            placeholder="Search customers..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <div 
           className="btn-add"
-          onClick={() => setIsAddUserFormOpen(true)}
+          onClick={() => setIsAddCustomerFormOpen(true)}
         >
           <UserPlus />
-          Add New User
+          Add New Customer
         </div>
       </div>
       
-      <AddUserForm
-        isOpen={isAddUserFormOpen}
-        onClose={() => setIsAddUserFormOpen(false)}
-        onUserAdded={() => {
-          fetchUsers();
-          setIsAddUserFormOpen(false);
-          showSuccessAlert("User added successfully!", "success");
+      <AddCustomerForm
+        isOpen={isAddCustomerFormOpen}
+        onClose={() => setIsAddCustomerFormOpen(false)}
+        onCustomerAdded={() => {
+          fetchCustomers();
+          setIsAddCustomerFormOpen(false);
+          showSuccessAlert("Customer added successfully!", "success");
         }}
       />
 
-      {selectedUser && (
+      {selectedCustomer && (
         <EditUserForm
-          isOpen={isEditUserFormOpen}
+          isOpen={isEditCustomerFormOpen}
           onClose={() => {
-            setIsEditUserFormOpen(false);
-            setSelectedUser(null);
+            setIsEditCustomerFormOpen(false);
+            setSelectedCustomer(null);
           }}
-          onUserUpdated={handleUserUpdated}
-          user={selectedUser}
+          onUserUpdated={handleCustomerUpdated}
+          customer={selectedCustomer}
         />
       )}
 
@@ -138,41 +139,35 @@ const UserManagement = () => {
         <table>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Contact</th>
-              <th>Role</th>
+              <th>FullName</th>
+              <th>Contact Info</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((user) => (
-              <tr key={user.userID}>
-                <td>{user.username}</td>
+            {filteredCustomers.map((customer) => (
+              <tr key={customer.customerId}>
+                <td>{customer.fullName}</td>
                 <td>
                   <div className="contact-info">
                     <span>
-                      <Mail size={14} /> {user.email}
+                      <Mail size={14} /> {customer.email}
                     </span>
                     <span>
-                      <Phone size={14} /> {user.mobile}
+                      <Phone size={14} /> {customer.billingMobile}
                     </span>
                   </div>
-                </td>
-                <td>
-                  <span className={`badge ${user.role}`}>
-                    {user.role}
-                  </span>
                 </td>
                 <td>
                   <div className="actions">
                   <button 
                       className="btn-icon"
-                      onClick={() => handleEditUser(user)}>
+                      onClick={() => handleEditCustomer(customer)}>
                       <Edit size={16} />
                     </button>
                     <button 
                       className="btn-icon delete"
-                      onClick={() => handleDeleteUser(user.userID)}
+                      onClick={() => handleDeleteCustomer(customer.customerId)}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -202,4 +197,4 @@ const UserManagement = () => {
   );
 };
 
-export default UserManagement;
+export default CustomerManagement;

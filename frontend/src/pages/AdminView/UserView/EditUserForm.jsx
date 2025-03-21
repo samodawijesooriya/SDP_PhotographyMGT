@@ -1,17 +1,17 @@
+// EditUserForm.jsx
 import React, { useState, useContext } from 'react';
 import { X } from 'lucide-react';
 import axios from 'axios';
-import './AddUserForm.css';
-import { StoreContext } from '../../context/StoreContext';
+import './EditUserForm.css';
+import { StoreContext } from '../../../context/StoreContext';
 
-const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
-  const { url } = useContext(StoreContext);
+const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
+  const {url} = useContext(StoreContext);
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    mobile: '',
-    role: 'user',
-    password: ''
+    username: user.username || '',
+    email: user.email || '',
+    mobile: user.mobile || '',
+    role: user.role || 'customer'
   });
   
   const [error, setError] = useState('');
@@ -30,21 +30,25 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
 
     try {
-      const response = await axios.post(`${url}/api/user/create`, formData, {
+        console.log('User:', user.userID);
+      const response = await axios.put(`${url}/api/user/${user.userID}`, formData, {
         headers: {
           'Content-Type': 'application/json'
         }
       });
 
-      console.log('Token:', response.data.token);
-      console.log('Success message:', 'User created successfully!');
-      onUserAdded(response.data); // Changed from data to response.data
+      setSuccess('User updated successfully!');
+      onUserUpdated(response.data);
       
+      setTimeout(() => {
+        onClose();
+      }, 1500);
 
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Failed to create user');
+      setError(err.response?.data?.message || err.message || 'Failed to update user');
     } finally {
       setLoading(false);
     }
@@ -59,11 +63,10 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
   };
 
   return (
-    
     <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Add New User</h2>
+          <h2>Edit User</h2>
           <div 
             onClick={onClose} 
             className="close-button"
@@ -79,13 +82,10 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
           </div>
         </div>
 
-
-
         {error && <div className="error-message">{error}</div>}
         {success && <div className="success-message">{success}</div>}
 
-
-        <form onSubmit={handleSubmit} className="add-user-form">
+        <form onSubmit={handleSubmit} className="edit-user-form">
           <div className="form-group">
             <label>Username</label>
             <input
@@ -126,21 +126,10 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
               value={formData.role}
               onChange={handleChange}
             >
-              <option value="customer">customer</option>
-              <option value="photographer">photographer</option>
-              <option value="admin">admin</option>
+              <option value="customer">Customer</option>
+              <option value="photographer">Photographer</option>
+              <option value="admin">Admin</option>
             </select>
-          </div>
-
-          <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
           </div>
 
           <div className="form-actions">
@@ -156,14 +145,13 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
               disabled={loading}
               className="submit-button"
             >
-              {loading ? 'Adding...' : 'Add User'}
+              {loading ? 'Updating...' : 'Update User'}
             </button>
           </div>
         </form>
       </div>
-      
     </div>
   );
 };
 
-export default AddUserForm;
+export default EditUserForm;

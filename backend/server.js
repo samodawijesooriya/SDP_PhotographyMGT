@@ -7,7 +7,7 @@ import userRouter from './routes/userRoute.js';
 import 'dotenv/config';
 import packageRouter from './routes/packageRoutes.js';
 import bookingRouter from './routes/bookingRoutes.js';
-
+import customerRouter from './routes/customerRoutes.js';
 
 // app config
 dotenv.config();
@@ -25,6 +25,8 @@ app.use('/api/user', userRouter);
 app.use('/api/packages', packageRouter)
 
 app.use('/api/bookings', bookingRouter);
+
+app.use('/api/customers', customerRouter);
 
 // request the data from the server
 app.get("/", (req, res) => {

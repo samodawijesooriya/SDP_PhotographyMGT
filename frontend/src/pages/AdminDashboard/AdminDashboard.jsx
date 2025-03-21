@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useContext } from 'react';
 import './AdminDashboard.css';
 import { Calendar, BookOpen, Package, Users, CalendarDays } from 'lucide-react';
-import UserManagement from './UserManagemnet';
 import ManagePackages from './ManagePackages';
 import ManageBookings from './ManageBookings/ManageBookings';
 import EventCalendar from './EventCalendar/EventCalendar';
 import Events from './Events/Events';
 import axios from 'axios';
 import { StoreContext } from '../../context/StoreContext';
+import CustomerManagement from './Customers/CustomerManagement';
 
 const AdminDashboard = () => {
   const { url } = useContext(StoreContext);
@@ -45,15 +45,7 @@ const AdminDashboard = () => {
 
   return (
     <div className="admin-dashboard">
-      <header className="dashboard-header">
-        <h1>Welcome, {userData?.username}</h1>
-        <button className="logout-btn" onClick={() => {
-          localStorage.removeItem('token');
-          localStorage.removeItem('userData');
-          window.location.href = '/';
-        }}>Logout</button>
-      </header>
-
+  
       <div className="dashboard-container">
         <nav className="sidebar">
           <button 
@@ -87,7 +79,7 @@ const AdminDashboard = () => {
             <div className="flex-shrink-0">
               <Users className="w-5 h-5" />
             </div>
-            <span>Manage Users</span>
+            <span>Manage Cusomers</span>
           </button>
           <button 
             className={`w-full text-left p-4 mb-2 rounded flex items-center space-x-4 ${
@@ -133,8 +125,8 @@ const AdminDashboard = () => {
           )}
           {activeSection === 'users' && (
             <div className="section-container">
-              <h2>Manage Users</h2>
-              <UserManagement />
+              <h2>Manage Cusomers</h2>
+              <CustomerManagement />
             </div>
           )}
           {activeSection === 'events' && (
