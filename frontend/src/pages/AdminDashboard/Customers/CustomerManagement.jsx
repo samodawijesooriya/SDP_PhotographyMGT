@@ -24,7 +24,6 @@ const CustomerManagement = () => {
       const response = await fetch(`${url}/api/customers/allcustomers`);
       const data = await response.json();
       setCustomers(data);
-      console.log(data);
       setLoading(false);
     } catch (err) {
       setError(err.message);

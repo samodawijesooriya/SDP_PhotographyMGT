@@ -354,21 +354,18 @@ const ManagePackages = () => {
                         <p><strong>Coverage Hours:</strong> {selectedPackage.coverageHours}</p>
                         <p><strong>Event Name:</strong> {selectedPackage.eventName}</p>
                         <p><strong>Package Tier:</strong> {selectedPackage.packageTierName}</p>
-                        <p><strong>Investment:</strong>{selectedPackage.investedAmount}</p>
-                        {selectedPackage.investmentAmount !== undefined && (
-                            <p><strong>Investment Amount:</strong> {formatCurrency(selectedPackage.investedAmount)}</p>
-                        )}
+                        <p><strong>Investment:</strong> {formatCurrency(selectedPackage.investedAmount)}</p>
                         
                         <p><strong>Package Items:</strong></p>
                         <ul>
-                            {selectedPackage.items.split(';').map((item, index) => (
+                            {selectedPackage.items && selectedPackage.items.split(';').map((item, index) => (
                                 <li key={index}>{item.trim()}</li>
                             ))}
                         </ul>
 
                         <p><strong>Package Details:</strong></p>
                         <ul>
-                            {selectedPackage.details.split(';').map((detail, index) => (
+                            {selectedPackage.details && selectedPackage.details.split(';').map((detail, index) => (
                                 <li key={index}>{detail.trim()}</li>
                             ))}
                         </ul>

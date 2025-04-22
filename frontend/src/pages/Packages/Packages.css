@@ -1,0 +1,417 @@
+/* Package.css - Styling for Photography Packages */
+
+.packages-container {
+    max-width: 1200px;
+    margin: 100px auto 40px; /* Added top margin to account for fixed navbar */
+    padding: 40px 20px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  }
+  
+  .packages-title {
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 2.5rem;
+    color: #333;
+  }
+  
+  .packages-subtitle {
+    text-align: center;
+    margin-bottom: 40px;
+    color: #666;
+    font-size: 1.1rem;
+  }
+  
+  /* Event Type Sections */
+  .event-section {
+    margin-bottom: 40px;
+  }
+  
+  .event-title {
+    font-size: 1.8rem;
+    color: #333;
+    margin-bottom: 10px;
+  }
+  
+  .event-divider {
+    height: 2px;
+    background: linear-gradient(to right, rgba(255, 222, 189, 1), #333);
+    margin-bottom: 20px;
+  }
+  
+  .event-packages {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+  }
+  
+  /* Package Cards - With Images */
+  .package-card {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    text-align: center;
+    height: 280px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(255, 222, 189, 0.5);
+  }
+  
+  .package-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    border-color: rgba(255, 222, 189, 1);
+  }
+  
+  .package-card:hover .view-details {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  .package-image-container {
+    position: relative;
+    height: 160px;
+    overflow: hidden;
+  }
+  
+  .package-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+  }
+  
+  .package-card:hover .package-image {
+    transform: scale(1.05);
+  }
+  
+  .package-tier-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    background: #333;
+    color: white;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+  }
+  
+  .package-card-content {
+    padding: 15px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  .package-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 5px 0;
+    color: #333;
+  }
+  
+  .package-price {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #333;
+    margin-top: 5px;
+  }
+  
+  .view-details {
+    background-color: #533211;
+    color: white;
+    padding: 10px;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    opacity: 0;
+    transform: translateY(100%);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+  
+  /* Modal Styles */
+  .package-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 20px;
+    overflow-y: auto;
+  }
+  
+  .package-modal {
+    background-color: white;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 700px;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 5px 30px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .modal-close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: rgba(0, 0, 0, 0.5);
+    border: none;
+    color: white;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+  }
+  
+  .modal-close-btn:hover {
+    background: rgba(205, 205, 205, 0.8);
+  }
+  
+  /* Modal Header with Image */
+  .modal-header {
+    position: relative;
+    color: white;
+    padding: 0;
+    overflow: hidden;
+    height: 200px;
+    width: 100%;
+  }
+  
+  .modal-image-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+  
+  .modal-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .modal-image-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.6));
+    z-index: 1;
+  }
+  
+  .modal-header-content {
+    position: relative;
+    z-index: 2;
+    padding: 25px 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  
+  .modal-header h2 {
+    color: white;
+    margin: 0;
+    font-size: 1.8rem;
+    padding-right: 30px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  }
+  
+  .modal-tier {
+    display: inline-block;
+    padding: 5px 12px;
+    background-color: rgba(255, 222, 189, 0.9);
+    color: #333;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    align-self: flex-start;
+  }
+  
+  .modal-content {
+    padding: 25px;
+  }
+  
+  .modal-main-details {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 25px;
+    margin-bottom: 30px;
+  }
+  
+  .modal-detail-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  
+  .modal-icon {
+    color: #333;
+    stroke-width: 1.5;
+  }
+  
+  .modal-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #777;
+    margin-bottom: 3px;
+  }
+  
+  .modal-value {
+    display: block;
+    font-weight: 600;
+    color: #333;
+    font-size: 1.2rem;
+  }
+  
+  .investment .modal-value {
+    color: #333;
+    font-size: 1.4rem;
+  }
+  
+  .modal-items, .modal-details {
+    margin-bottom: 30px;
+  }
+  
+  .modal-items h3, .modal-details h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.2rem;
+    color: #333;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .small-icon {
+    width: 18px;
+    height: 18px;
+    color: #333;
+  }
+  
+  .modal-items ul, .modal-details ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .modal-items li, .modal-details li {
+    padding: 8px 0;
+    display: flex;
+    align-items: center;
+  }
+  
+  .modal-items li::before, .modal-details li::before {
+    content: "•";
+    color: #333;
+    font-weight: bold;
+    display: inline-block;
+    width: 1em;
+    margin-left: 0;
+  }
+  
+  .item-quantity {
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .book-package-btn {
+    width: 100%;
+    padding: 15px;
+    background-color: #333;
+    color: white;
+    border: none;
+    font-weight: 600;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 0 0 8px 8px;
+  }
+  
+  .book-package-btn:hover {
+    background-color: #000;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .packages-loading {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-size: 1.1rem;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .event-packages {
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    }
+    
+    .modal-main-details {
+      grid-template-columns: 1fr;
+      gap: 15px;
+    }
+    
+    .package-modal {
+      max-height: 85vh;
+      margin: 20px;
+      width: calc(100% - 40px);
+    }
+  
+    .package-card {
+      height: 250px;
+    }
+  
+    .package-image-container {
+      height: 130px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .event-packages {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+    
+    .package-modal {
+      margin: 10px;
+      width: calc(100% - 20px);
+      max-height: 80vh;
+    }
+    
+    .package-card {
+      height: 240px;
+    }
+  
+    .package-image-container {
+      height: 120px;
+    }
+    
+    .modal-header {
+      height: 150px;
+    }
+  }

@@ -222,6 +222,7 @@
 }
 
 .admin-logout {
+  margin-left: auto;
   display: flex;
   align-items: center;
 }
