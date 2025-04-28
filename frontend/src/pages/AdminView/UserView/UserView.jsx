@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-import { Search, Edit, Trash2, UserPlus, Mail, Phone, Filter } from "lucide-react";
+import { Search, Edit, Trash2, UserPlus, Mail, Filter } from "lucide-react";
 import { StoreContext } from "../../../context/StoreContext";
 import axios from "axios";
 import "./UserView.css";
@@ -170,7 +170,7 @@ const UserView = () => {
           <thead>
             <tr>
               <th>Name</th>
-              <th>Contact</th>
+              <th>Email</th>
               <th>Role</th>
               <th>Actions</th>
             </tr>
@@ -180,13 +180,9 @@ const UserView = () => {
               <tr key={user.userID}>
                 <td>{user.username}</td>
                 <td>
-                  <div className="contact-info">
-                    <span>
-                      <Mail size={14} /> {user.email}
-                    </span>
-                    <span>
-                      <Phone size={14} /> {user.mobile}
-                    </span>
+                  <div className="email-info">
+                    <Mail size={16} /> 
+                    <span className="email-text">{user.email}</span>
                   </div>
                 </td>
                 <td>

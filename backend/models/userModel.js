@@ -3,7 +3,7 @@ import db from '../config/db.js';
 
 class UserModel {
     static getAllUsers(result) {
-        db.query('SELECT userID, username, email, role, mobile FROM user', (err, res) => {
+        db.query('SELECT userID, username, email, role FROM user', (err, res) => {
             if (err) {
                 console.log('Error:', err);
                 result(err, null);
@@ -14,7 +14,7 @@ class UserModel {
     }
 
     static getUserById(id, result) {
-        db.query('SELECT userID, username, email, role, mobile FROM user WHERE userID = ?', [id], (err, res) => {
+        db.query('SELECT userID, username, email, role FROM user WHERE userID = ?', [id], (err, res) => {
             if (err) {
                 console.log('Error:', err);
                 result(err, null);
@@ -31,8 +31,8 @@ class UserModel {
 
     static updateUser(id, user, result) {
         db.query(
-            'UPDATE user SET username = ?, email = ?, role = ?, mobile = ? WHERE userID = ?',
-            [user.username, user.email, user.role, user.mobile, id],
+            'UPDATE user SET username = ?, email = ?, role = ? WHERE userID = ?',
+            [user.username, user.email, user.role, id],
             (err, res) => {
                 if (err) {
                     console.log('Error:', err);

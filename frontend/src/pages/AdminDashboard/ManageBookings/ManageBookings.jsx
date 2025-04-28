@@ -16,6 +16,7 @@ const ManageBookings = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isAddBookingModalOpen, setIsAddBookingModalOpen] = useState(false);
     const [packages, setPackages] = useState([]);
+    
     const [editFormData, setEditFormData] = useState({
         fullName: '',
         email: '',

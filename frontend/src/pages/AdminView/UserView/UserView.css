@@ -3,7 +3,7 @@
     padding: 2rem;
     max-width: 1200px;
     margin: 0 auto;
-    margin-top: 10%;
+    margin-top: 5%;
   }
   
   /* Top bar styling */
@@ -411,4 +411,29 @@
   /* For update operations */
   .update-alert .success-alert-content {
     background-color: #ff9800; /* Orange for update */
+  }
+
+  .email-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #444;
+  }
+  
+  .email-text {
+    font-size: 14px;
+    color: #0066cc;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px; /* Adjust based on your layout */
+  }
+  
+  /* Updated table structure */
+  .table-wrapper th:nth-child(2) {
+    min-width: 200px; /* Give more space for email column */
+  }
+  
+  /* Optional hover effect for better UX */
+  tr:hover .email-text {
+    text-decoration: underline;
   }

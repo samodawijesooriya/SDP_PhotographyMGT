@@ -11,7 +11,7 @@ const createToken = (id) => {
 
 // register user
 const registerUser = async (req, res) => {
-    const { username, email, password, mobile } = req.body;
+    const { username, email, password} = req.body;
     const role = 'customer';
 
     try {
@@ -33,11 +33,6 @@ const registerUser = async (req, res) => {
                 return res.json({ success: false, message: "Password must be at least 8 characters" });
             }
 
-            // // validate the mobile number
-            // if (!validator.isMobilePhone(mobile, 'en-IN')) {
-            //     return res.json({ success: false, message: "Invalid mobile number" });
-            // }
-
             // cannot decrypt the password (ERROR: data and hash arguments required)
             // Encrypt the password
             // const salt = await bcrypt.genSalt(10);
@@ -55,10 +50,11 @@ const registerUser = async (req, res) => {
                 }
                 
                 // Insert new user
-                const sqlInsert = 'INSERT INTO user (userID, username, email, password, role, mobile) VALUES (?, ?, ?, ?, ?, ?)';
-                db.query(sqlInsert, [newId, username, email, password, role, mobile], (err, user) => {
+                const sqlInsert = 'INSERT INTO user (userID, username, email, password, role) VALUES (?, ?, ?, ?, ?)';
+                db.query(sqlInsert, [newId, username, email, password, role], (err, user) => {
                     if (err) {
-                        return res.json({ success: false, message: "An error occurred while creating the user" });
+                        console.log(err);
+                        return res.json({ success: false, message: "An error occurred while in register user" });
                     }
 
                     // Create a token
@@ -179,7 +175,7 @@ const createUser = async (req, res) => {
     }
 
     // Create a User
-    const { username, email, password, mobile } = req.body;
+    const { username, email, password} = req.body;
     const role = req.body.role || 'customer';
 
     try {
@@ -220,10 +216,10 @@ const createUser = async (req, res) => {
                 const newId = result[0].maxId + 1;
                 
                 // Insert new user
-                const sqlInsert = 'INSERT INTO user (userID, username, email, password, role, mobile) VALUES (?, ?, ?, ?, ?, ?)';
-                db.query(sqlInsert, [newId, username, email, password, role, mobile], (err, user) => {
+                const sqlInsert = 'INSERT INTO user (userID, username, email, password, role) VALUES (?, ?, ?, ?, ?, ?)';
+                db.query(sqlInsert, [newId, username, email, password, role], (err, user) => {
                     if (err) {
-                        return res.json({ success: false, message: "An error occurred while creating the user" });
+                        return res.json({ success: false, message: "An error occurred while creating the user in create" });
                     }
 
                     // Create a token
@@ -263,8 +259,8 @@ const updateUser = async (req, res) => {
         const { id } = req.params;  // Corrected parameter extraction
         console.log("Updating user with ID:", id);  
 
-        const query = "UPDATE user SET username=?, email=?, mobile=?, role=? WHERE userID=?";
-        const values = [req.body.username, req.body.email, req.body.mobile, req.body.role, id];
+        const query = "UPDATE user SET username=?, email=?, role=? WHERE userID=?";
+        const values = [req.body.username, req.body.email, req.body.role, id];
 
         db.query(query, values, (err, result) => {
             if (err) {

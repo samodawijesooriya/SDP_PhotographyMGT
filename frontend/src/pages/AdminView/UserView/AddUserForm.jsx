@@ -9,7 +9,6 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
-    mobile: '',
     role: '',
     password: ''
   });
@@ -63,7 +62,7 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
     <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Add New User</h2>
+          <h2 style={{ color: 'black' }}>Add New User</h2>
           <div 
             onClick={onClose} 
             className="close-button"
@@ -78,7 +77,6 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
             <X size={24} />
           </div>
         </div>
-
 
 
         {error && <div className="error-message">{error}</div>}
@@ -103,17 +101,6 @@ const AddUserForm = ({ isOpen, onClose, onUserAdded }) => {
               type="email"
               name="email"
               value={formData.email}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Mobile</label>
-            <input
-              type="tel"
-              name="mobile"
-              value={formData.mobile}
               onChange={handleChange}
               required
             />

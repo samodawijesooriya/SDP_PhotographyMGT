@@ -10,6 +10,14 @@
     align-items: center;
     z-index: 1000;
   }
+
+  .login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f8f9fa;
+  }
   
   .login-popup-container {
     background: white;
@@ -119,4 +127,29 @@
     .login-popup-inputs input {
       padding: 10px 14px;
     }
+  }
+
+
+  .error-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: #FFDEBA;
+    color: #333;
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  .error-message p {
+    margin: 0;
+    line-height: 1.4;
+  }
+  
+  /* Animation for the error message */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
   }

@@ -10,7 +10,6 @@ const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
   const [formData, setFormData] = useState({
     username: user.username || '',
     email: user.email || '',
-    mobile: user.mobile || '',
     role: user.role || 'customer'
   });
   
@@ -66,7 +65,7 @@ const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
     <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Edit User</h2>
+          <h2 style={{ color: 'black' }}>Edit User</h2>
           <div 
             onClick={onClose} 
             className="close-button"
@@ -103,17 +102,6 @@ const EditUserForm = ({ isOpen, onClose, onUserUpdated, user }) => {
               type="email"
               name="email"
               value={formData.email}
-              onChange={handleChange}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Mobile</label>
-            <input
-              type="tel"
-              name="mobile"
-              value={formData.mobile}
               onChange={handleChange}
               required
             />
