@@ -15,6 +15,9 @@ const bookingRouter = express.Router();
 // Get all bookings
 bookingRouter.get('/', getAllBookings);
 
+// create a booking
+bookingRouter.post('/create', createBooking);
+
 // Delete a booking
 bookingRouter.delete('/:id', deleteBooking);
 

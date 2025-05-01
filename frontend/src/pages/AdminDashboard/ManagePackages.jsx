@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import './ManagePackages.css';
-import { X, Trash2, Edit } from 'lucide-react';
+import { Trash2, Edit, Plus, X, Save, ArrowLeft, Eye } from 'lucide-react';
 import axios from 'axios';
 import { StoreContext } from '../../context/StoreContext';
 
@@ -10,21 +10,23 @@ const ManagePackages = () => {
     const [events, setEvents] = useState([]);
     const [packageTiers, setPackageTiers] = useState([]);
     const [packageItems, setPackageItems] = useState([]);
-    const [selectedItems, setSelectedItems] = useState([]);
     const [packageDetails, setPackageDetails] = useState([]);
+    const [selectedItems, setSelectedItems] = useState([]);
     const [selectedDetails, setSelectedDetails] = useState([]);
     const [formSubmitting, setFormSubmitting] = useState(false);
-    const [formError, setFormError] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isViewMode, setIsViewMode] = useState(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [packageToDelete, setPackageToDelete] = useState(null);
     const [selectedPackage, setSelectedPackage] = useState(null);
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [successAlert, setSuccessAlert] = useState(null);
     const [isEditMode, setIsEditMode] = useState(false);
+    const [isAddingNew, setIsAddingNew] = useState(false);
+    const [successAlert, setSuccessAlert] = useState(null);
     const [alertType, setAlertType] = useState('success');
 
-    // fetch all pacakges
+    // Fetch functions
     const fetchPackages = async () => {
         try {
             setIsLoading(true);
@@ -40,17 +42,6 @@ const ManagePackages = () => {
         }
     };
 
-    const showSuccessAlert = (message, type = 'success') => {
-        setSuccessAlert(message);
-        setAlertType(type);
-        
-        // Auto-hide the alert after 5 seconds
-        setTimeout(() => {
-            setSuccessAlert(null);
-        }, 5000);
-    };
-
-    // fetch all events 
     const fetchEvents = async () => {
         try {
             const response = await fetch(`${url}/api/packages/events`);
@@ -61,7 +52,6 @@ const ManagePackages = () => {
         }
     };
 
-    // fetch all package tiers
     const fetchPackageTiers = async () => {
         try {
             const response = await fetch(`${url}/api/packages/tiers`);
@@ -71,8 +61,7 @@ const ManagePackages = () => {
             console.error('Error fetching package tiers:', error);
         }
     };
-    
-    // fetch package items
+
     const fetchPackageItems = async () => {
         try {
             const response = await fetch(`${url}/api/packages/items`);
@@ -83,7 +72,6 @@ const ManagePackages = () => {
         }
     };
 
-    // fetch package details
     const fetchPackageDetails = async () => {
         try {
             const response = await fetch(`${url}/api/packages/details`);
@@ -102,7 +90,16 @@ const ManagePackages = () => {
         fetchPackageDetails();
     }, []);
 
-    // Handle item selection
+    // Alert handling
+    const showSuccessAlert = (message, type = 'success') => {
+        setSuccessAlert(message);
+        setAlertType(type);
+        setTimeout(() => {
+            setSuccessAlert(null);
+        }, 5000);
+    };
+
+    // Form handling
     const handleItemSelect = (e) => {
         const itemId = parseInt(e.target.value);
         if (itemId) {
@@ -117,7 +114,6 @@ const ManagePackages = () => {
         }
     };
 
-    // Handle detail selection
     const handleDetailSelect = (e) => {
         const detailId = parseInt(e.target.value);
         if (detailId) {
@@ -131,62 +127,28 @@ const ManagePackages = () => {
         }
     };
 
-    // Handle quantity change
     const handleQuantityChange = (itemId, quantity) => {
         setSelectedItems(selectedItems.map(item => 
             item.itemId === itemId ? { ...item, quantity: parseInt(quantity) || 0 } : item
         ));
     };
 
-    // Remove selected item
     const removeSelectedItem = (itemId) => {
         setSelectedItems(selectedItems.filter(item => item.itemId !== itemId));
     };
 
-    // Remove selected detail
     const removeSelectedDetail = (detailId) => {
         setSelectedDetails(selectedDetails.filter(detail => detail.detailId !== detailId));
     };
 
-    const filteredPackages = packages.filter(pkg =>
-        pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pkg.coverageHours.toString().includes(searchTerm.toLowerCase())
-    );
-
-
-    const handleDeletePackage = async (packageId, packageName, e) => {
-        e.stopPropagation();
-
-        // Ask for confirmation before deleting
-        if (window.confirm(`Are you sure you want to delete the package "${packageName}"?`)) {
-            try {
-                await axios.delete(`${url}/api/packages/${packageId}`);
-                
-                // Show success message
-                showSuccessAlert(`Package "${packageName}" deleted successfully!`, 'delete');
-                
-                // Refresh packages list
-                fetchPackages();
-            } catch (error) {
-                console.error('Error deleting package:', error);
-                setError('Failed to delete package. Please try again.');
-            }
-        }
-    }
-
-    // Edit Package Handler
-    const handleEditPackage = (pkg, e) => {
-        e.stopPropagation();
-        
-        // Set the package to edit mode
-        setIsAddModalOpen(true);
+    const handleEditPackage = (pkg) => {
         setIsEditMode(true);
         setSelectedPackage(pkg);
+        setIsAddingNew(false);
 
         // Prepare selected items
         const itemsToSelect = pkg.items ? 
         pkg.items.split(';').reduce((acc, itemStr) => {
-            // Use a more flexible regex to handle different formats
             const match = itemStr.trim().match(/(.+?)\s*\((\d+)\)/);
             if (match) {
                 const [, itemType, quantityStr] = match;
@@ -219,13 +181,96 @@ const ManagePackages = () => {
         }, [])
         : [];
         setSelectedDetails(detailsToSelect);
+    };
 
+    const handleViewPackage = (pkg) => {
+        setIsViewMode(true);
+        setSelectedPackage(pkg);
+        setIsAddingNew(false);
+        setIsEditMode(false);
+
+        // Prepare selected items for viewing
+        const itemsToSelect = pkg.items ? 
+        pkg.items.split(';').reduce((acc, itemStr) => {
+            const match = itemStr.trim().match(/(.+?)\s*\((\d+)\)/);
+            if (match) {
+                const [, itemType, quantityStr] = match;
+                const matchedItem = packageItems.find(item => 
+                    item.itemType.trim() === itemType.trim()
+                );
+                if (matchedItem) {
+                    acc.push({
+                        itemId: matchedItem.itemId,
+                        itemType: matchedItem.itemType,
+                        quantity: parseInt(quantityStr) || 1
+                    });
+                }
+            }
+            return acc;
+        }, [])
+        : [];
+        setSelectedItems(itemsToSelect);
+
+        // Prepare selected details for viewing
+        const detailsToSelect = pkg.details ? 
+        pkg.details.split(';').reduce((acc, detailDescription) => {
+            const matchedDetail = packageDetails.find(detail => 
+                detail.detailDescription.trim() === detailDescription.trim()
+            );
+            if (matchedDetail) {
+                acc.push(matchedDetail);
+            }
+            return acc;
+        }, [])
+        : [];
+        setSelectedDetails(detailsToSelect);
+    };
+
+    // Handle switching from view to edit mode
+    const handleEditFromView = () => {
+        setIsViewMode(false);
+        setIsEditMode(true);
+    };
+
+    const handleDeletePackage = async (packageId, packageName) => {
+        if (window.confirm(`Are you sure you want to delete the package "${packageName}"?`)) {
+            try {
+                await axios.delete(`${url}/api/packages/${packageId}`);
+                showSuccessAlert(`Package "${packageName}" deleted successfully!`, 'delete');
+                fetchPackages();
+            } catch (error) {
+                console.error('Error deleting package:', error);
+                setError('Failed to delete package. Please try again.');
+            }
+        }
+    };
+
+    const openDeleteModal = (pkg) => {
+        setPackageToDelete(pkg);
+        setDeleteModalOpen(true);
+    };
+
+    const closeDeleteModal = () => {
+        setPackageToDelete(null);
+        setDeleteModalOpen(false);
+    };
+
+    const confirmDelete = async () => {
+        try {
+            await axios.delete(`${url}/api/packages/${packageToDelete.packageId}`);
+            showSuccessAlert(`Package "${packageToDelete.packageName}" deleted successfully!`, 'delete');
+            fetchPackages();
+            closeDeleteModal();
+        } catch (error) {
+            console.error('Error deleting package:', error);
+            setError('Failed to delete package. Please try again.');
+            closeDeleteModal();
+        }
     };
 
     const handlePackageSubmit = async (e) => {
         e.preventDefault();
         setFormSubmitting(true);
-        setFormError(null);
 
         try {
             const packageData = {
@@ -241,35 +286,29 @@ const ManagePackages = () => {
                 details: selectedDetails.map(detail => detail.detailId)
             };
 
-            let response;
             if (isEditMode && selectedPackage) {
-                // Update existing package
-                response = await axios.put(`${url}/api/packages/${selectedPackage.packageId}`, packageData);
+                await axios.put(`${url}/api/packages/${selectedPackage.packageId}`, packageData);
                 showSuccessAlert(`Package "${packageData.packageName}" updated successfully!`, 'update');
             } else {
-                // Create new package
-                response = await axios.post(`${url}/api/packages/create`, packageData);
+                await axios.post(`${url}/api/packages/create`, packageData);
                 showSuccessAlert(`Package "${packageData.packageName}" added successfully!`, 'success');
             }
 
-            // Close the modal and refresh the packages list
-            setIsAddModalOpen(false);
+            // Reset form
             setIsEditMode(false);
-            fetchPackages();
-
-            // Reset form state
+            setIsAddingNew(false);
+            setSelectedPackage(null);
             setSelectedItems([]);
             setSelectedDetails([]);
-            setSelectedPackage(null);
+            fetchPackages();
         } catch (error) {
             console.error('Failed to submit package:', error);
-            setFormError(error.response?.data?.message || error.message || 'An error occurred while submitting the package. Please try again.');
+            setError(error.response?.data?.message || error.message || 'An error occurred while submitting the package. Please try again.');
         } finally {
             setFormSubmitting(false);
         }
     };
 
-    // Format currency
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-LK', {
             style: 'currency',
@@ -277,6 +316,11 @@ const ManagePackages = () => {
             minimumFractionDigits: 2
         }).format(amount);
     };
+
+    const filteredPackages = packages.filter(pkg =>
+        pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        pkg.coverageHours.toString().includes(searchTerm.toLowerCase())
+    );
 
     if (isLoading) {
         return <div className="loading">Loading packages...</div>;
@@ -286,322 +330,478 @@ const ManagePackages = () => {
         return <div className="error">{error}</div>;
     }
 
-    return (
-        <div className="packages-management">
-            <div className="search-and-add-container">
-                <input
-                    type="text"
-                    placeholder="Search packages by name or hours..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="search-input"
-                />
-                <button 
-                    className="add-package-btn"
-                    onClick={() => setIsAddModalOpen(true)}
-                >
-                    Add Package
-                </button>
-            </div>
-
-            <div className="packages-grid">
-                {filteredPackages.map((pkg) => (
-                    <div 
-                        key={pkg.packageId} 
-                        className="package-card"
-                        onClick={() => setSelectedPackage(pkg)}
+    // Render view mode
+    if (isViewMode && selectedPackage) {
+        return (
+            <div className="packages-management">
+                <div className="form-header">
+                    <button 
+                        className="back-btn"
+                        onClick={() => {
+                            setIsViewMode(false);
+                            setSelectedPackage(null);
+                            setSelectedItems([]);
+                            setSelectedDetails([]);
+                        }}
                     >
-                        <div className="package-name">{pkg.packageName}</div>
-                        <div className="package-event">{pkg.eventName}</div>
-                        <div className="package-tier">{pkg.packageTierName}</div>
-                        <div className="package-footer">
-                            {pkg.investedAmount !== undefined && (
-                                <div className="package-investment">
-                                    {formatCurrency(pkg.investedAmount)}
-                                </div>
-                            )}
-                            <div className="package-actions">
-                                <button 
-                                    className="edit-package-btn"
-                                    onClick={(e) => handleEditPackage(pkg, e)}
-                                    aria-label="Edit package"
-                                >
-                                    <Edit size={16} />
-                                </button>
-                                <button 
-                                    className="delete-package-btn"
-                                    onClick={(e) => handleDeletePackage(pkg.packageId, pkg.packageName, e)}
-                                    aria-label="Delete package"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
+                        <ArrowLeft size={20} /> Back to List
+                    </button>
+                    <h2>View Package Details</h2>
+                </div>
+
+                <div className="view-package-container">
+                    <div className="view-package-header">
+                        <h2>{selectedPackage.packageName}</h2>
+                    </div>
+
+                    <div className="view-package-grid">
+                        <div className="view-package-field">
+                            <label>Package Name</label>
+                            <div className="value">{selectedPackage.packageName}</div>
+                        </div>
+                        <div className="view-package-field">
+                            <label>Coverage Hours</label>
+                            <div className="value">{selectedPackage.coverageHours} hours</div>
+                        </div>
+                        <div className="view-package-field">
+                            <label>Investment Amount</label>
+                            <div className="value">{formatCurrency(selectedPackage.investedAmount)}</div>
+                        </div>
+                        <div className="view-package-field">
+                            <label>Event Type</label>
+                            <div className="value">{selectedPackage.eventName}</div>
+                        </div>
+                        <div className="view-package-field">
+                            <label>Package Tier</label>
+                            <div className="value">{selectedPackage.packageTierName}</div>
                         </div>
                     </div>
-                ))}
-            </div>
 
-            {selectedPackage && (
-                <div className="package-modal">
-                    <div className="package-modal-content">
+                    {/* Package Items Section */}
+                    <div className="view-package-section">
+                        <h3>Package Items</h3>
+                        {selectedItems.length > 0 ? (
+                            <div className="item-list">
+                                {selectedItems.map((item) => (
+                                    <div key={item.itemId} className="item-card">
+                                        <div className="item-info">
+                                            {item.itemType}
+                                            <span className="quantity">x{item.quantity}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p>No items in this package</p>
+                        )}
+                    </div>
+
+                    {/* Package Details Section */}
+                    <div className="view-package-section">
+                        <h3>Package Details</h3>
+                        {selectedDetails.length > 0 ? (
+                            <div className="detail-list">
+                                {selectedDetails.map((detail) => (
+                                    <div key={detail.detailId} className="detail-card">
+                                        {detail.detailDescription}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p>No details for this package</p>
+                        )}
+                    </div>
+
+                    <div className="form-actions">
                         <button 
-                            className="close-button"
-                            onClick={() => setSelectedPackage(null)}
+                            type="button"
+                            className="cancel-btn" 
+                            onClick={() => {
+                                setIsViewMode(false);
+                                setSelectedPackage(null);
+                                setSelectedItems([]);
+                                setSelectedDetails([]);
+                            }}
                         >
-                            ×
+                            Back to List
                         </button>
-                        <h2>{selectedPackage.packageName}</h2>
-                        <p><strong>Coverage Hours:</strong> {selectedPackage.coverageHours}</p>
-                        <p><strong>Event Name:</strong> {selectedPackage.eventName}</p>
-                        <p><strong>Package Tier:</strong> {selectedPackage.packageTierName}</p>
-                        <p><strong>Investment:</strong> {formatCurrency(selectedPackage.investedAmount)}</p>
-                        
-                        <p><strong>Package Items:</strong></p>
-                        <ul>
-                            {selectedPackage.items && selectedPackage.items.split(';').map((item, index) => (
-                                <li key={index}>{item.trim()}</li>
-                            ))}
-                        </ul>
-
-                        <p><strong>Package Details:</strong></p>
-                        <ul>
-                            {selectedPackage.details && selectedPackage.details.split(';').map((detail, index) => (
-                                <li key={index}>{detail.trim()}</li>
-                            ))}
-                        </ul>
+                        <button 
+                            type="button" 
+                            className="edit-btn-large"
+                            onClick={handleEditFromView}
+                        >
+                            <Edit size={20} /> Edit Package
+                        </button>
                     </div>
                 </div>
-            )}
 
-            {isAddModalOpen && (
-                <div className="package-modal">
-                    <div className="package-modal-content">
-                    <h2>{isEditMode ? 'Edit Package' : 'Add New Package'}</h2>
-                        <form onSubmit={handlePackageSubmit}>
-                            <div className="form-group">
-                                <label htmlFor="packageName">Package Name</label>
-                                <input 
-                                    type="text" 
-                                    id="packageName" 
-                                    name="packageName" 
-                                    required 
-                                    defaultValue={isEditMode ? selectedPackage?.packageName : ''}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label htmlFor="coverageHours">Coverage Hours</label>
-                                <input 
-                                    type="number" 
-                                    id="coverageHours" 
-                                    name="coverageHours" 
-                                    required 
-                                    defaultValue={isEditMode ? selectedPackage?.coverageHours : ''}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label htmlFor="investedAmount">Investment Amount ($)</label>
-                                <input 
-                                    type="number" 
-                                    id="investedAmount" 
-                                    name="investedAmount" 
-                                    step="0.01" 
-                                    min="0"
-                                    placeholder="0.00"
-                                    required 
-                                    defaultValue={isEditMode ? selectedPackage?.investedAmount : ''}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label htmlFor="eventName">Event Name</label>
-                                <select 
-                                    id="eventName" 
-                                    name="eventName" 
-                                    required
-                                    defaultValue={isEditMode ? selectedPackage?.eventName : ''}
-                                >
-                                    <option value="">Select an event</option>
-                                    {events.map((event) => (
-                                        <option 
-                                            key={event.eventId} 
-                                            value={event.eventName}
-                                        >
-                                            {event.eventName}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label htmlFor="packageTier">Package Tier</label>
-                                <select 
-                                    id="packageTier" 
-                                    name="packageTier" 
-                                    required
-                                >
-                                    <option value="">Select a package tier</option>
-                                    {packageTiers.map((tier) => (
-                                        <option 
-                                            key={tier.packageTierId} 
-                                            value={tier.packageTierName}
-                                        >
-                                            {tier.packageTierName}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                            
-                            {/* Package Items Section */}
-                            <div className="form-section">
-                                <h3>Package Items</h3>
-                                <div className="form-group">
-                                    <label htmlFor='itemSelect'>Select Item</label>
-                                    <select 
-                                        id="itemSelect" 
-                                        onChange={handleItemSelect}
-                                        value=""
-                                    >
-                                        <option value="">Choose an item to add</option>
-                                        {packageItems
-                                            .filter(item => !selectedItems.some(selected => selected.itemId === item.itemId))
-                                            .map((item) => (
-                                                <option 
-                                                    key={item.itemId} 
-                                                    value={item.itemId}
-                                                >
-                                                    {item.itemType}
-                                                </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                {selectedItems.length > 0 && (
-                                    <div className="selected-items-list">
-                                        <h3 className="text-lg font-semibold mb-3">Selected Items:</h3>
-                                        {selectedItems.map((item) => (
-                                            <div key={item.itemId} className="selected-item-card">
-                                                <div className="item-content">
-                                                    <span className="item-type-badge">{item.itemType}</span>
-                                                    <div className="item-controls">
-                                                        <div className="quantity-control">
-                                                            <button
-                                                                type="button"
-                                                                className="quantity-btn"
-                                                                onClick={() => handleQuantityChange(item.itemId, Math.max(1, item.quantity - 1))}
-                                                                disabled={item.quantity <= 1}
-                                                            >
-                                                                -
-                                                            </button>
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                value={item.quantity}
-                                                                onChange={(e) => handleQuantityChange(item.itemId, e.target.value)}
-                                                                className="quantity-input"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                className="quantity-btn"
-                                                                onClick={() => handleQuantityChange(item.itemId, item.quantity + 1)}
-                                                            >
-                                                                +
-                                                            </button>
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeSelectedItem(item.itemId)}
-                                                            className="remove-btn"
-                                                            aria-label="Remove item"
-                                                        >
-                                                            <X size={18} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                            
-                            {/* Package Details Section */}
-                            <div className="form-section">
-                                <h3>Package Details</h3>
-                                <div className="form-group">
-                                    <label htmlFor='detailSelect'>Select Detail</label>
-                                    <select 
-                                        id="detailSelect" 
-                                        onChange={handleDetailSelect}
-                                        value=""
-                                    >
-                                        <option value="">Choose a detail to add</option>
-                                        {packageDetails
-                                            .filter(detail => !selectedDetails.some(selected => selected.detailId === detail.detailId))
-                                            .map((detail) => (
-                                                <option 
-                                                    key={detail.detailId} 
-                                                    value={detail.detailId}
-                                                >
-                                                    {detail.detailDescription}
-                                                </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                {selectedDetails.length > 0 && (
-                                    <div className="selected-details-list">
-                                        <h3 className="text-lg font-semibold mb-3">Selected Details:</h3>
-                                        {selectedDetails.map((detail) => (
-                                            <div key={detail.detailId} className="selected-item-card">
-                                                <div className="item-content">
-                                                    <span className="detail-description">{detail.detailDescription}</span>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => removeSelectedDetail(detail.detailId)}
-                                                        className="remove-btn"
-                                                        aria-label="Remove detail"
-                                                    >
-                                                        <X size={18} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="modal-actions">
-                            <div className="modal-cancel">
-                            <button 
-                                    type="button"
-                                    className='cancel-btn' 
-                                    onClick={() => {
-                                        setIsAddModalOpen(false);
-                                        setIsEditMode(false);
-                                        setSelectedItems([]);
-                                        setSelectedDetails([]);
-                                        setSelectedPackage(null);
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                                <button className="submit-btn" type="submit">
-                                    {isEditMode ? 'Update Package' : 'Add Package'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {successAlert && (
-                <div className="success-alert">
-                    <div className={`success-alert-content alert-${alertType}`}>
-                        <span className="success-icon">✓</span>
+                {successAlert && (
+                    <div className={`alert alert-${alertType}`}>
+                        <span className="alert-icon">✓</span>
                         {successAlert}
                         <button 
-                            className="close-alert-button"
+                            className="close-alert"
                             onClick={() => setSuccessAlert(null)}
                         >
                             ×
                         </button>
                     </div>
+                )}
+            </div>
+        );
+    }
+
+    // Render main view
+    if (!isAddingNew && !isEditMode) {
+        return (
+            <div className="packages-management">
+                <div className="search-and-add-container">
+                    <input
+                        type="text"
+                        placeholder="Search packages by name or hours..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="search-input"
+                    />
+                    <button 
+                        className="add-package-btn"
+                        onClick={() => setIsAddingNew(true)}
+                    >
+                        <Plus size={20} /> Add Package
+                    </button>
+                </div>
+
+                <div className="packages-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Package Name</th>
+                                <th>Event</th>
+                                <th>Tier</th>
+                                <th>Coverage Hours</th>
+                                <th>Investment</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredPackages.map((pkg) => (
+                                <tr key={pkg.packageId}>
+                                    <td>{pkg.packageName}</td>
+                                    <td>{pkg.eventName}</td>
+                                    <td>{pkg.packageTierName}</td>
+                                    <td>{pkg.coverageHours} hours</td>
+                                    <td>{formatCurrency(pkg.investedAmount)}</td>
+                                    <td>
+                                        <div className="action-buttons">
+                                            <button 
+                                                className="view-btn"
+                                                onClick={() => handleViewPackage(pkg)}
+                                                aria-label="View package"
+                                            >
+                                                <Eye size={16} />
+                                            </button>
+                                            <button 
+                                                className="edit-btn"
+                                                onClick={() => handleEditPackage(pkg)}
+                                                aria-label="Edit package"
+                                            >
+                                                <Edit size={16} />
+                                            </button>
+                                            <button 
+                                                className="delete-btn"
+                                                onClick={() => openDeleteModal(pkg)}
+                                                aria-label="Delete package"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+
+                {successAlert && (
+                    <div className={`alert alert-${alertType}`}>
+                        <span className="alert-icon">✓</span>
+                        {successAlert}
+                        <button 
+                            className="close-alert"
+                            onClick={() => setSuccessAlert(null)}
+                        >
+                            ×
+                        </button>
+                    </div>
+                )}
+
+                {/* Delete Confirmation Modal */}
+                {deleteModalOpen && packageToDelete && (
+                    <div className="delete-modal-overlay">
+                        <div className="delete-modal">
+                            <div className="delete-modal-header">
+                                <h3>Confirm Deletion</h3>
+                            </div>
+                            <div className="delete-modal-content">
+                                <p>Are you sure you want to delete the package <span className="package-name-highlight">"{packageToDelete.packageName}"</span>?</p>
+                                <p>This action cannot be undone.</p>
+                            </div>
+                            <div className="delete-modal-actions">
+                                <button
+                                    className="cancel-delete-btn"
+                                    onClick={closeDeleteModal}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    className="confirm-delete-btn"
+                                    onClick={confirmDelete}
+                                >
+                                    Delete Package
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    // Render form view (for adding or editing)
+    return (
+        <div className="packages-management">
+            <div className="form-header">
+                <button 
+                    className="back-btn"
+                    onClick={() => {
+                        setIsAddingNew(false);
+                        setIsEditMode(false);
+                        setSelectedPackage(null);
+                        setSelectedItems([]);
+                        setSelectedDetails([]);
+                    }}
+                >
+                    <ArrowLeft size={20} /> Back to List
+                </button>
+                <h2>{isEditMode ? 'Edit Package' : 'Add New Package'}</h2>
+            </div>
+
+            <form onSubmit={handlePackageSubmit} className="package-form">
+                <div className="form-grid">
+                    <div className="form-group">
+                        <label htmlFor="packageName">Package Name</label>
+                        <input 
+                            type="text" 
+                            id="packageName" 
+                            name="packageName" 
+                            required 
+                            defaultValue={isEditMode ? selectedPackage?.packageName : ''}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="coverageHours">Coverage Hours</label>
+                        <input 
+                            type="number" 
+                            id="coverageHours" 
+                            name="coverageHours" 
+                            required 
+                            defaultValue={isEditMode ? selectedPackage?.coverageHours : ''}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="investedAmount">Investment Amount ($)</label>
+                        <input 
+                            type="number" 
+                            id="investedAmount" 
+                            name="investedAmount" 
+                            step="0.01" 
+                            min="0"
+                            placeholder="0.00"
+                            required 
+                            defaultValue={isEditMode ? selectedPackage?.investedAmount : ''}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="eventName">Event Name</label>
+                        <select 
+                            id="eventName" 
+                            name="eventName" 
+                            required
+                            defaultValue={isEditMode ? selectedPackage?.eventName : ''}
+                        >
+                            <option value="">Select an event</option>
+                            {events.map((event) => (
+                                <option 
+                                    key={event.eventId} 
+                                    value={event.eventName}
+                                >
+                                    {event.eventName}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="packageTier">Package Tier</label>
+                        <select 
+                            id="packageTier" 
+                            name="packageTier" 
+                            required
+                            defaultValue={isEditMode ? selectedPackage?.packageTierName : ''}
+                        >
+                            <option value="">Select a package tier</option>
+                            {packageTiers.map((tier) => (
+                                <option 
+                                    key={tier.packageTierId} 
+                                    value={tier.packageTierName}
+                                >
+                                    {tier.packageTierName}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+
+                {/* Package Items Section */}
+                <div className="form-section">
+                    <h3>Package Items</h3>
+                    <div className="form-group">
+                        <label htmlFor='itemSelect'>Select Item</label>
+                        <select 
+                            id="itemSelect" 
+                            onChange={handleItemSelect}
+                            value=""
+                        >
+                            <option value="">Choose an item to add</option>
+                            {packageItems
+                                .filter(item => !selectedItems.some(selected => selected.itemId === item.itemId))
+                                .map((item) => (
+                                    <option 
+                                        key={item.itemId} 
+                                        value={item.itemId}
+                                    >
+                                        {item.itemType}
+                                    </option>
+                            ))}
+                        </select>
+                    </div>
+                    {selectedItems.length > 0 && (
+                        <div className="selected-items-list">
+                            {selectedItems.map((item) => (
+                                <div key={item.itemId} className="selected-item-card">
+                                    <span className="item-type">{item.itemType}</span>
+                                    <div className="item-controls">
+                                        <div className="quantity-control">
+                                            <button
+                                                type="button"
+                                                className="quantity-btn"
+                                                onClick={() => handleQuantityChange(item.itemId, Math.max(1, item.quantity - 1))}
+                                            >
+                                                -
+                                            </button>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={item.quantity}
+                                                onChange={(e) => handleQuantityChange(item.itemId, e.target.value)}
+                                                className="quantity-input"
+                                            />
+                                            <button
+                                                type="button"
+                                                className="quantity-btn"
+                                                onClick={() => handleQuantityChange(item.itemId, item.quantity + 1)}
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeSelectedItem(item.itemId)}
+                                            className="remove-btn"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Package Details Section */}
+                <div className="form-section">
+                    <h3>Package Details</h3>
+                    <div className="form-group">
+                        <label htmlFor='detailSelect'>Select Detail</label>
+                        <select 
+                            id="detailSelect" 
+                            onChange={handleDetailSelect}
+                            value=""
+                        >
+                            <option value="">Choose a detail to add</option>
+                            {packageDetails
+                                .filter(detail => !selectedDetails.some(selected => selected.detailId === detail.detailId))
+                                .map((detail) => (
+                                    <option 
+                                        key={detail.detailId} 
+                                        value={detail.detailId}
+                                    >
+                                        {detail.detailDescription}
+                                    </option>
+                            ))}
+                        </select>
+                    </div>
+                    {selectedDetails.length > 0 && (
+                        <div className="selected-details-list">
+                            {selectedDetails.map((detail) => (
+                                <div key={detail.detailId} className="selected-item-card">
+                                    <span className="detail-text">{detail.detailDescription}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeSelectedDetail(detail.detailId)}
+                                        className="remove-btn"
+                                    >
+                                        <X size={18} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="form-actions">
+                    <button 
+                        type="button"
+                        className="cancel-btn" 
+                        onClick={() => {
+                            setIsAddingNew(false);
+                            setIsEditMode(false);
+                            setSelectedPackage(null);
+                            setSelectedItems([]);
+                            setSelectedDetails([]);
+                        }}
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        type="submit" 
+                        className="submit-btn"
+                        disabled={formSubmitting}
+                    >
+                        <Save size={20} /> {isEditMode ? 'Update Package' : 'Save Package'}
+                    </button>
+                </div>
+            </form>
+
+            {successAlert && (
+                <div className={`alert alert-${alertType}`}>
+                    <span className="alert-icon">✓</span>
+                    {successAlert}
+                    <button 
+                        className="close-alert"
+                        onClick={() => setSuccessAlert(null)}
+                    >
+                        ×
+                    </button>
                 </div>
             )}
         </div>

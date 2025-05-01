@@ -23,27 +23,25 @@ const Booking = ({setShowLogin}) => {
   // Initialize formData with credit card fields and bank transfer fields
   const [formData, setFormData] = useState({
     // Customer Details
-    name: '',
+    fullName: '',
     email: '',
-    mobile: '',
+    billingMobile: '',
     billingAddress: '',
     
     // Event Details
-    date: '',
-    time: '',
+    eventDate: '',
+    eventTime: '',
     venue: '',
     
     // Package Details
+    packageId: '',
     packageName: '',
     eventType: '',
     coverageHours: '',
-    prenupAlbum: false,
-    additionalImages: false,
-    dayNight: false,
     
     // Payment Details
     totalAmount: '',
-    bookingType: '',
+    bookingStatus: '',
     paymentMethod: '',
     
     // Credit Card Details
@@ -87,6 +85,7 @@ const Booking = ({setShowLogin}) => {
       if (selected) {
         setFormData(prevData => ({
           ...prevData,
+          packageId: selected.packageId,  // Add packageId
           coverageHours: selected.coverageHours || '',
           eventType: selected.eventName || ''
         }));
@@ -123,7 +122,6 @@ const Booking = ({setShowLogin}) => {
       ...pkg
     }));
     setPackages(PACKAGE_ARRAY);
-
     } catch (error) {
     console.error('Error fetching packages:', error);
     }
@@ -164,23 +162,21 @@ const Booking = ({setShowLogin}) => {
     }
   };
 
-  const calculateTotal = () => {
-    // This is a placeholder function - implement your actual pricing logic
+  const calculateTotal = (bookingStatus) => {
     let basePrice = 0;
-    
-    // Set base price depending on package
-    switch(formData.packageName) {
-      case 'basic': basePrice = 1500; break;
-      case 'standard': basePrice = 2500; break;
-      case 'premium': basePrice = 3500; break;
-      default: basePrice = 0;
+    // This is a placeholder function - implement your actual pricing logic
+    if(selectedPackage){
+      if(bookingStatus === 'pencil') {
+        basePrice = 0; // No payment for pencil booking
+      } else if(bookingStatus === 'Pending') {
+        basePrice = selectedPackage.investedAmount / 2; // 50% deposit
+      }
+      else if(bookingStatus === 'Confirm') {
+        basePrice = selectedPackage.investedAmount; // Full payment
+      } else {
+        basePrice = selectedPackage.investedAmount; // Default to full payment
+      } 
     }
-    
-    // Add additional features
-    if (formData.prenupAlbum) basePrice += 500;
-    if (formData.additionalImages) basePrice += 300;
-    if (formData.dayNight) basePrice += 800;
-    
     return basePrice;
   };
 
@@ -190,7 +186,7 @@ const Booking = ({setShowLogin}) => {
     // Add the calculated total to form data
     const dataToSubmit = {
       ...formData,
-      totalAmount: calculateTotal()
+      totalAmount: calculateTotal(formData.bookingStatus)
     };
     
     try {
@@ -241,6 +237,7 @@ const Booking = ({setShowLogin}) => {
           fetchPackages();
       }, []);
 
+
   return (
     <div className='booking-container2'>
       <div className="booking-container">
@@ -275,7 +272,7 @@ const Booking = ({setShowLogin}) => {
                     <input
                       type="text"
                       name="name"
-                      value={formData.name}
+                      value={formData.fullName}
                       onChange={handleChange}
                       placeholder="Your Name"
                       required
@@ -299,7 +296,7 @@ const Booking = ({setShowLogin}) => {
                     <input
                       type="tel"
                       name="mobile"
-                      value={formData.mobile}
+                      value={formData.billingMobile}
                       onChange={handleChange}
                       placeholder="Mobile"
                       required
@@ -330,7 +327,7 @@ const Booking = ({setShowLogin}) => {
                     <input
                       type="date"
                       name="date"
-                      value={formData.date}
+                      value={formData.eventDate}
                       onChange={handleChange}
                       required
                     />
@@ -341,7 +338,7 @@ const Booking = ({setShowLogin}) => {
                     <input
                       type="time"
                       name="time"
-                      value={formData.time}
+                      value={formData.eventTime}
                       onChange={handleChange}
                       required
                     />
@@ -427,9 +424,7 @@ const Booking = ({setShowLogin}) => {
                     <div className="form-group">
                       <div className="package-modal-content">
                         <p><strong>Coverage Hours:</strong> {selectedPackage.coverageHours}</p>
-                        <p><strong>Event Name:</strong> {selectedPackage.eventName}</p>
-                        <p><strong>Package Tier:</strong> {selectedPackage.packageTier}</p>
-
+                        <p><strong>Investment:</strong> LKR {selectedPackage.investedAmount}</p>
                         <p><strong>Package Items:</strong></p>
                         <ul>
                           {selectedPackage.items && selectedPackage.items.split(';').map((item, index) => (
@@ -456,14 +451,14 @@ const Booking = ({setShowLogin}) => {
                   
                   <div className="form-group price-display">
                     <label>Total Amount</label>
-                    <div className="price-box">${calculateTotal()}</div>
+                    <div className="price-box"> LKR {calculateTotal(formData.bookingStatus)}</div>
                   </div>
                   
                   <div className="form-group">
                     <label>Booking Type</label>
                     <select
-                      name="bookingType"
-                      value={formData.bookingType}
+                      name="bookingStatus"
+                      value={formData.bookingStatus}
                       onChange={handleChange}
                       required
                     >
@@ -475,7 +470,7 @@ const Booking = ({setShowLogin}) => {
                   </div>
                   
                   {/* Only show payment method if booking type is NOT pencil */}
-                  {formData.bookingType && formData.bookingType !== 'pencil' && (
+                  {formData.bookingStatus && formData.bookingStatus !== 'pencil' && (
                     <>
                       <div className="form-group">
                         <label>Payment Method</label>
@@ -483,7 +478,7 @@ const Booking = ({setShowLogin}) => {
                           name="paymentMethod"
                           value={formData.paymentMethod}
                           onChange={handleChange}
-                          required={formData.bookingType !== 'pencil'}
+                          required={formData.bookingStatus !== 'pencil'}
                         >
                           <option value="">Select Payment Method</option>
                           <option value="creditCard">Credit Card</option>
@@ -502,7 +497,7 @@ const Booking = ({setShowLogin}) => {
                               value={formData.cardNumber}
                               onChange={handleChange}
                               placeholder="Card Number"
-                              required={formData.bookingType !== 'pencil' && formData.paymentMethod === 'creditCard'}
+                              required={formData.bookingStatus !== 'pencil' && formData.paymentMethod === 'creditCard'}
                             />
                           </div>
 
@@ -514,7 +509,7 @@ const Booking = ({setShowLogin}) => {
                               value={formData.cardholderName}
                               onChange={handleChange}
                               placeholder="Cardholder Name"
-                              required={formData.bookingType !== 'pencil' && formData.paymentMethod === 'creditCard'}
+                              required={formData.bookingStatus !== 'pencil' && formData.paymentMethod === 'creditCard'}
                             />
                           </div>
 
@@ -526,7 +521,7 @@ const Booking = ({setShowLogin}) => {
                               value={formData.expiryDate}
                               onChange={handleChange}
                               placeholder="MM/YY"
-                              required={formData.bookingType !== 'pencil' && formData.paymentMethod === 'creditCard'}
+                              required={formData.bookingStatus !== 'pencil' && formData.paymentMethod === 'creditCard'}
                             />
                           </div>
 
@@ -538,7 +533,7 @@ const Booking = ({setShowLogin}) => {
                               value={formData.cvv}
                               onChange={handleChange}
                               placeholder="CVV"
-                              required={formData.bookingType !== 'pencil' && formData.paymentMethod === 'creditCard'}
+                              required={formData.bookingStatus !== 'pencil' && formData.paymentMethod === 'creditCard'}
                             />
                           </div>
                         </div>
@@ -555,7 +550,7 @@ const Booking = ({setShowLogin}) => {
                               value={formData.bankReceiptRef}
                               onChange={handleChange}
                               placeholder="Reference Number"
-                              required={formData.bookingType !== 'pencil' && formData.paymentMethod === 'bankTransfer'}
+                              required={formData.bookingStatus !== 'pencil' && formData.paymentMethod === 'bankTransfer'}
                             />
                           </div>
 
@@ -584,7 +579,7 @@ const Booking = ({setShowLogin}) => {
                   )}
                   
                   {/* Show message explaining no payment for pencil booking */}
-                  {formData.bookingType === 'pencil' && (
+                  {formData.bookingStatus === 'pencil' && (
                     <div className="pencil-booking-message">
                       <p>No payment is required for Pencil Booking. This booking will be held temporarily without a deposit.</p>
                     </div>
@@ -597,41 +592,66 @@ const Booking = ({setShowLogin}) => {
                 <div className="tab-content">
                   <h3>Review & Submit</h3>
                   
-                  <div className="review-section">
-                    <h4>Customer Details</h4>
-                    <div className="review-item"><strong>Name:</strong> {formData.name}</div>
-                    <div className="review-item"><strong>Email:</strong> {formData.email}</div>
-                    <div className="review-item"><strong>Mobile:</strong> {formData.mobile}</div>
-                    <div className="review-item"><strong>Billing Address:</strong> {formData.billingAddress}</div>
-                  </div>
-                  
-                  <div className="review-section">
-                    <h4>Event Details</h4>
-                    <div className="review-item"><strong>Date:</strong> {formData.date}</div>
-                    <div className="review-item"><strong>Time:</strong> {formData.time}</div>
-                    <div className="review-item"><strong>Venue:</strong> {formData.venue}</div>
-                  </div>
-                  
-                  <div className="review-section">
-                    <h4>Package Details</h4>
-                    <div className="review-item"><strong>Package:</strong> {selectedPackage ? selectedPackage.packageName : ''}</div>
-                    <div className="review-item"><strong>Event Type:</strong> {selectedPackage ? selectedPackage.eventName : formData.eventType}</div>
-                    <div className="review-item"><strong>Coverage Hours:</strong> {selectedPackage ? selectedPackage.coverageHours : formData.coverageHours}</div>
-                    <div className="review-item">
-                      <strong>Additional Features:</strong>
-                      <ul>
-                        {formData.prenupAlbum && <li>Prenup Album (+$500)</li>}
-                        {formData.additionalImages && <li>Additional 1000 Images (+$300)</li>}
-                        {formData.dayNight && <li>Day & Night Coverage (+$800)</li>}
-                      </ul>
+                  <div className="review-container">
+                    <div className="review-section">
+                      <h4>Customer Details</h4>
+                      <div className="review-item"><strong>Name:</strong> {formData.fullName}</div>
+                      <div className="review-item"><strong>Email:</strong> {formData.email}</div>
+                      <div className="review-item"><strong>Mobile:</strong> {formData.billingMobile}</div>
+                      <div className="review-item"><strong>Billing Address:</strong> {formData.billingAddress}</div>
                     </div>
-                  </div>
-                  
-                  <div className="review-section">
-                    <h4>Payment Details</h4>
-                    <div className="review-item"><strong>Total Amount:</strong> ${calculateTotal()}</div>
-                    <div className="review-item"><strong>Booking Type:</strong> {formData.bookingType}</div>
-                    <div className="review-item"><strong>Payment Method:</strong> {formData.paymentMethod}</div>
+                    
+                    <hr className="review-divider" />
+                    
+                    <div className="review-section">
+                      <h4>Event Details</h4>
+                      <div className="review-item"><strong>Date:</strong> {formData.eventDate}</div>
+                      <div className="review-item"><strong>Time:</strong> {formData.eventTime}</div>
+                      <div className="review-item"><strong>Venue:</strong> {formData.venue}</div>
+                    </div>
+                    
+                    <hr className="review-divider" />
+                    
+                    <div className="review-section">
+                      <h4>Package Details</h4>
+                      <div className="review-item"><strong>Package:</strong> {selectedPackage ? selectedPackage.packageName : ''}</div>
+                      <div className="review-item"><strong>Event Type:</strong> {selectedPackage ? selectedPackage.eventName : formData.eventType}</div>
+                      <div className="review-item"><strong>Coverage Hours:</strong> {selectedPackage ? selectedPackage.coverageHours : formData.coverageHours}</div>
+                    </div>
+                    
+                    <hr className="review-divider" />
+                    
+                    <div className="review-section">
+                      <h4>Payment Details</h4>
+                      <div className="review-item"><strong>Total Amount:</strong> LKR {calculateTotal(formData.bookingStatus)}</div>
+                      
+                      {formData.bookingStatus === 'pencil' && (
+                        <>
+                          <div className="review-item"><strong>Payment Amount:</strong> No Payment</div>
+                        </>
+                      )}
+                      
+                      {formData.bookingStatus === 'half' && (
+                        <>
+                          <div className="review-item"><strong>Payment Amount:</strong> LKR 20,000</div>
+                          <div className="review-item"><strong>Balance:</strong> LKR {calculateTotal(formData.bookingStatus) - 20000}</div>
+                        </>
+                      )}
+                      
+                      {formData.bookingStatus === 'full' && (
+                        <div className="review-item"><strong>Payment Amount:</strong> LKR {calculateTotal(formData.bookingStatus)} (Full Payment)</div>
+                      )}
+                      
+                      <div className="review-item"><strong>Booking Type:</strong> {
+                        formData.bookingStatus === 'pencil' ? 'Pencil Booking (Rs 20,000 deposit)' :
+                        formData.bookingStatus === 'half' ? 'Pending Booking (Rs 20,000 deposit)' :
+                        formData.bookingStatus === 'full' ? 'Confirm Booking (100%)' : ''
+                      }</div>
+                      <div className="review-item"><strong>Payment Method:</strong> {
+                        formData.paymentMethod === 'creditCard' ? 'Credit Card' :
+                        formData.paymentMethod === 'bankTransfer' ? 'Bank Transfer' : 'None'
+                      }</div>
+                    </div>
                   </div>
                   
                   <div className="form-group">
@@ -641,7 +661,7 @@ const Booking = ({setShowLogin}) => {
                       value={formData.notes}
                       onChange={handleChange}
                       placeholder="Any additional requirements or notes"
-                      rows="3"
+                      rows="2"
                     ></textarea>
                   </div>
                 </div>

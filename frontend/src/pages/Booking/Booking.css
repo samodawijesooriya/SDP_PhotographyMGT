@@ -91,6 +91,10 @@
   transition: border 0.3s ease;
 }
 
+.form-group textarea{
+  height: 80px;
+}
+
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
@@ -219,29 +223,49 @@
 
 /* Review page styles */
 .review-section {
-  margin-bottom: 25px;
-  padding: 15px;
-  background-color: #f9f9f9;
-  border-radius: 5px;
+  margin-bottom: 1.5rem;
+}
+
+.review-section:last-child {
+  margin-bottom: 0;
 }
 
 .review-section h4 {
-  margin-bottom: 10px;
-  color: #4a90e2;
+  margin-bottom: 0.75rem;
+  color: #333;
   font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .review-item {
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
   font-size: 0.95rem;
 }
 
 .review-item strong {
-  margin-right: 5px;
+  margin-right: 0.5rem;
+  color: #555;
 }
 
 .review-item ul {
-  margin: 5px 0 0 20px;
+  margin-top: 0.5rem;
+  padding-left: 1.5rem;
+}
+
+.review-divider {
+  border: 0;
+  height: 1px;
+  background-color: #e0e0e0;
+  margin: 1.5rem 0;
+}
+
+/* Review Container Styles */
+.review-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 /* Price display box */

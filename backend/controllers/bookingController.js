@@ -108,298 +108,231 @@ const deleteBooking = async (req, res) => {
 
 // Update a booking
 const updateBooking = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const {
-      // Customer information
-      fullName,
-      email,
-      billingAddress,
-      billingMobile,
-      
-      // Booking information
-      eventDate,
-      eventTime,
-      venue,
-      bookingStatus,
-      bookingType,
-      notes,
-      packageId
-    } = req.body;
-    
-    // Begin transaction
-    db.beginTransaction(async (transErr) => {
-      if (transErr) {
-        console.error('Error starting transaction:', transErr);
-        return res.status(500).json({ error: 'Failed to start transaction' });
-      }
-      
-      // First check if the booking exists and get customerId
-      db.query('SELECT customerId FROM booking WHERE bookingId = ?', [id], (checkErr, bookingResults) => {
-        if (checkErr) {
-          return db.rollback(() => {
-            console.error('Error checking booking existence:', checkErr);
-            res.status(500).json({ error: 'Failed to check booking existence' });
-          });
-        }
-        
-        if (bookingResults.length === 0) {
-          return db.rollback(() => {
-            res.status(404).json({ error: 'Booking not found' });
-          });
-        }
-        
-        const customerId = bookingResults[0].customerId;
-        
-        // Update customer information
-        const updateCustomerQuery = `
-          UPDATE Customers SET
-            fullName = ?,
-            email = ?,
-            billingAddress = ?,
-            billingMobile = ?
-          WHERE customerId = ?
-        `;
-        
-        const customerValues = [
-          fullName,
-          email,
-          billingAddress,
-          billingMobile,
-          customerId
-        ];
-        
-        db.query(updateCustomerQuery, customerValues, (customerErr) => {
-          if (customerErr) {
-            return db.rollback(() => {
-              console.error('Error updating customer:', customerErr);
-              res.status(500).json({ error: 'Failed to update customer information' });
-            });
+ 
+};
+
+const queryDatabase = (query, params) => {
+  return new Promise((resolve, reject) => {
+      db.query(query, params, (err, results) => {
+          if (err) {
+              reject(err);
+          } else {
+              resolve(results);
           }
-          
-          // Update the booking
-          const updateBookingQuery = `
-            UPDATE booking SET
-              eventDate = ?,
-              eventTime = ?,
-              venue = ?,
-              bookingStatus = ?,
-              bookingType = ?,
-              notes = ?,
-              packageId = ?
-            WHERE bookingId = ?
-          `;
-          
-          const bookingValues = [
-            eventDate,
-            eventTime,
-            venue,
-            bookingStatus,
-            bookingType,
-            notes,
-            packageId,
-            id
-          ];
-          
-          db.query(updateBookingQuery, bookingValues, (bookingErr) => {
-            if (bookingErr) {
-              return db.rollback(() => {
-                console.error('Error updating booking:', bookingErr);
-                res.status(500).json({ error: 'Failed to update booking' });
-              });
-            }
-            
-            // Commit the transaction
-            db.commit((commitErr) => {
-              if (commitErr) {
-                return db.rollback(() => {
-                  console.error('Error committing transaction:', commitErr);
-                  res.status(500).json({ error: 'Failed to commit transaction' });
-                });
-              }
-              
-              res.json({
-                message: 'Booking updated successfully',
-                updatedId: id
-              });
-            });
-          });
-        });
       });
-    });
-  } catch (error) {
-    console.error('Error in updateBooking:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  });
 };
 
   // Create a new booking
-const createBooking = async (req, res) => {
-  try {
+  const createBooking = async (req, res) => {
     const {
-      // Customer information
       fullName,
       email,
-      billingAddress,
       billingMobile,
-      
-      // Booking information
+      billingAddress,
       eventDate,
       eventTime,
       venue,
+      packageId,
+      packageName,
+      eventType,
+      coverageHours,
+      totalAmount,
       bookingStatus,
-      bookingType,
-      notes,
-      packageId
+      paymentMethod,
+      cardNumber,
+      cardholderName,
+      expiryDate,
+      cvv,
+      bankReceiptRef,
+      bankReceiptImage,
+      notes
     } = req.body;
-    
-    // Begin transaction
-    db.beginTransaction(async (transErr) => {
-      if (transErr) {
-        console.error('Error starting transaction:', transErr);
-        return res.status(500).json({ error: 'Failed to start transaction' });
+  
+    try {
+      // Validate required fields
+      if (!fullName || !email || !billingMobile || !eventDate || !packageId || !totalAmount || !paymentMethod) {
+        return res.status(400).json({ 
+          error: 'Missing required fields', 
+          requiredFields: ['fullName', 'email', 'billingMobile', 'eventDate', 'packageId', 'totalAmount', 'paymentMethod']
+        });
       }
-      
-      // First, create or find the customer
-      const findCustomerQuery = 'SELECT customerId FROM Customers WHERE email = ?';
-      
-      db.query(findCustomerQuery, [email], (findErr, findResults) => {
-        if (findErr) {
-          return db.rollback(() => {
-            console.error('Error finding customer:', findErr);
-            res.status(500).json({ error: 'Failed to find customer' });
+  
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+  
+      // Validate mobile number format (assuming 10-digit)
+      const mobileRegex = /^\d{10}$/;
+      if (!mobileRegex.test(billingMobile)) {
+        return res.status(400).json({ error: 'Invalid mobile number format' });
+      }
+  
+      // Validate event date (not in the past)
+      const eventDateObj = new Date(eventDate);
+      if (eventDateObj < new Date()) {
+        return res.status(400).json({ error: 'Event date cannot be in the past' });
+      }
+  
+      // Validate amount
+      if (isNaN(totalAmount) || totalAmount <= 0) {
+        return res.status(400).json({ error: 'Invalid total amount' });
+      }
+  
+      // Validate payment method and associated fields
+      if (paymentMethod === 'CREDIT_CARD') {
+        if (!cardNumber || !cardholderName || !expiryDate || !cvv) {
+          return res.status(400).json({ 
+            error: 'Credit card details are required for credit card payments',
+            requiredFields: ['cardNumber', 'cardholderName', 'expiryDate', 'cvv']
           });
         }
-        
-        let customerId;
-        
-        // If customer doesn't exist, create a new one
-        if (findResults.length === 0) {
-          const createCustomerQuery = `
-            INSERT INTO Customers (fullName, email, billingAddress, billingMobile)
-            VALUES (?, ?, ?, ?)
-          `;
-          
-          const customerValues = [fullName, email, billingAddress, billingMobile];
-          
-          db.query(createCustomerQuery, customerValues, (createErr, createResults) => {
-            if (createErr) {
-              return db.rollback(() => {
-                console.error('Error creating customer:', createErr);
-                res.status(500).json({ error: 'Failed to create customer' });
-              });
-            }
-            
-            customerId = createResults.insertId;
-            createBookingRecord(customerId);
-          });
-        } else {
-          // Customer exists, update their information and use their ID
-          customerId = findResults[0].customerId;
-          
-          const updateCustomerQuery = `
-            UPDATE Customers SET
-              fullName = ?,
-              billingAddress = ?,
-              billingMobile = ?
-            WHERE customerId = ?
-          `;
-          
-          const customerValues = [fullName, billingAddress, billingMobile, customerId];
-          
-          db.query(updateCustomerQuery, customerValues, (updateErr) => {
-            if (updateErr) {
-              return db.rollback(() => {
-                console.error('Error updating customer:', updateErr);
-                res.status(500).json({ error: 'Failed to update customer' });
-              });
-            }
-            
-            createBookingRecord(customerId);
+  
+        // Validate card number (16 digits)
+        if (!/^\d{16}$/.test(cardNumber.replace(/\s/g, ''))) {
+          return res.status(400).json({ error: 'Invalid card number format' });
+        }
+  
+        // Validate expiry date format (MM/YY or MM/YYYY)
+        if (!/^(0[1-9]|1[0-2])\/([0-9]{2}|[0-9]{4})$/.test(expiryDate)) {
+          return res.status(400).json({ error: 'Invalid expiry date format (MM/YY or MM/YYYY)' });
+        }
+  
+        // Validate CVV (3 or 4 digits)
+        if (!/^\d{3,4}$/.test(cvv)) {
+          return res.status(400).json({ error: 'Invalid CVV format' });
+        }
+      } else if (paymentMethod === 'BANK_DEPOSIT') {
+        if (!bankReceiptRef || !bankReceiptImage) {
+          return res.status(400).json({ 
+            error: 'Bank deposit details are required for bank deposit payments',
+            requiredFields: ['bankReceiptRef', 'bankReceiptImage']
           });
         }
+      }
+  
+      // First, get the last customer ID
+      const lastCustomerQuery = 'SELECT customerId FROM Customers ORDER BY customerId DESC LIMIT 1';
+      const lastCustomer = await queryDatabase(lastCustomerQuery);
+      let newCreditCardId = null;
+      let newDepositId = null;
+  
+      // Generate new customer ID (increment from last one or start at 1)
+      const newCustomerId = lastCustomer.length > 0 ? lastCustomer[0].customerId + 1 : 1;
+  
+      // Insert new customer
+      const customerQuery = 'INSERT INTO Customers (customerId, fullName, email, billingMobile, billingAddress) VALUES (?, ?, ?, ?, ?)';
+      const customerResult = await queryDatabase(customerQuery, [newCustomerId, fullName, email, billingMobile, billingAddress]);
+  
+      if (!customerResult || !customerResult.affectedRows) {
+        throw new Error('Failed to insert customer');
+      }
+  
+      // Check if the credit card details are provided
+      if (paymentMethod === 'CREDIT_CARD' && cardNumber && cardholderName && expiryDate && cvv) {
+        const lastCreditCardQuery = 'SELECT creditCardId FROM creditCard ORDER BY creditCardId DESC LIMIT 1';
+        const lastCreditCard = await queryDatabase(lastCreditCardQuery);
+        newCreditCardId = lastCreditCard.length > 0 ? lastCreditCard[0].creditCardId + 1 : 1;
         
-        // Helper function to create the booking record
-        function createBookingRecord(customerId) {
-          const createBookingQuery = `
-            INSERT INTO Booking (
-              customerId,
-              packageId,
-              eventDate,
-              eventTime,
-              venue,
-              bookingStatus,
-              bookingType,
-              notes,
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `;
-          
-          const bookingValues = [
-            customerId,
-            packageId,
-            eventDate,
-            eventTime,
-            venue,
-            bookingStatus || 'Pending',
-            bookingType,
-            notes
-          ];
-          
-          db.query(createBookingQuery, bookingValues, (bookingErr, bookingResults) => {
-            if (bookingErr) {
-              return db.rollback(() => {
-                console.error('Error creating booking:', bookingErr);
-                res.status(500).json({ error: 'Failed to create booking' });
-              });
-            }
-            
-            const bookingId = bookingResults.insertId;
-            
-            // Commit the transaction
-            db.commit((commitErr) => {
-              if (commitErr) {
-                return db.rollback(() => {
-                  console.error('Error committing transaction:', commitErr);
-                  res.status(500).json({ error: 'Failed to commit transaction' });
-                });
-              }
-              
-              // Fetch the complete booking information with joined tables
-              const getBookingQuery = `
-                SELECT b.*, c.fullName, c.email, c.billingAddress, c.billingMobile,
-                       p.packageName, p.coverageHours, e.eventName
-                FROM Booking b
-                JOIN Customers c ON b.customerId = c.customerId
-                LEFT JOIN Package p ON b.packageId = p.packageId
-                LEFT JOIN Event e ON p.eventId = e.eventId
-                WHERE b.bookingId = ?
-              `;
-              
-              db.query(getBookingQuery, [bookingId], (getErr, getResults) => {
-                if (getErr) {
-                  console.error('Error fetching created booking:', getErr);
-                  return res.status(201).json({
-                    message: 'Booking created successfully, but details could not be retrieved',
-                    bookingId: bookingId
-                  });
-                }
-                
-                res.status(201).json({
-                  message: 'Booking created successfully',
-                  bookingId: bookingId,
-                  booking: getResults[0]
-                });
-              });
-            });
-          });
+        const creditCardQuery = 'INSERT INTO creditCard (creditCardId, customerId, cardholderName, cardNumber, expiryDate, cvv) VALUES (?, ?, ?, ?, ?, ?)';
+        const creditCardResult = await queryDatabase(creditCardQuery, [newCreditCardId, newCustomerId, cardholderName, cardNumber, expiryDate, cvv]);
+        
+        if (!creditCardResult || !creditCardResult.affectedRows) {
+          throw new Error('Failed to insert credit card');
+        }
+      }
+    
+      // Check if the bank deposit details are provided
+      if (paymentMethod === 'BANK_DEPOSIT' && bankReceiptRef && bankReceiptImage) {
+        const lastDepositQuery = 'SELECT depositId FROM Deposit ORDER BY depositId DESC LIMIT 1';
+        const lastDeposit = await queryDatabase(lastDepositQuery);
+        newDepositId = lastDeposit.length > 0 ? lastDeposit[0].depositId + 1 : 1;
+        
+        const depositQuery = 'INSERT INTO Deposit (depositId, referenceNo, depositAmount, receiptImage) VALUES (?, ?, ?, ?)';
+        const depositResult = await queryDatabase(depositQuery, [newDepositId, bankReceiptRef, totalAmount, bankReceiptImage]);
+        
+        if (!depositResult || !depositResult.affectedRows) {
+          throw new Error('Failed to insert bank deposit');
+        }
+      }
+  
+      // Insert new booking
+      const lastBookingQuery = 'SELECT bookingId FROM booking ORDER BY bookingId DESC LIMIT 1';
+      const lastBooking = await queryDatabase(lastBookingQuery);
+      const newBookingId = lastBooking.length > 0 ? lastBooking[0].bookingId + 1 : 1;
+      
+      const bookingQuery = `INSERT INTO booking (bookingId, customerId, packageId, eventDate, eventTime, venue, bookingStatus, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+      const bookingResult = await queryDatabase(bookingQuery, [newBookingId, newCustomerId, packageId, eventDate, eventTime, venue, bookingStatus || 'PENDING', notes]);
+      
+      if (!bookingResult || !bookingResult.affectedRows) {
+        throw new Error('Failed to insert booking');
+      }
+  
+      // Insert into payment table
+      const lastPaymentQuery = 'SELECT paymentId FROM payment ORDER BY paymentId DESC LIMIT 1';
+      const lastPayment = await queryDatabase(lastPaymentQuery);
+      const newPaymentId = lastPayment.length > 0 ? lastPayment[0].paymentId + 1 : 1;
+      
+      const paymentQuery = `INSERT INTO payment (paymentId, bookingId, paymentAmount, paymentDate, paymentMethod, bankDepositId, creditCardId, paymentStatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+      const paymentResult = await queryDatabase(paymentQuery, [
+        newPaymentId, 
+        newBookingId, 
+        totalAmount, 
+        new Date(), 
+        paymentMethod, 
+        paymentMethod === 'BANK_DEPOSIT' ? newDepositId : null, 
+        paymentMethod === 'CREDIT_CARD' ? newCreditCardId : null, 
+        bookingStatus || 'PENDING'
+      ]);
+      
+      if (!paymentResult || !paymentResult.affectedRows) {
+        throw new Error('Failed to insert payment');
+      }
+  
+      // Return success response
+      res.status(201).json({ 
+        message: 'Booking created successfully',
+        bookingId: newBookingId,
+        customerId: newCustomerId,
+        paymentId: newPaymentId,
+        bookingDetails: {
+          fullName,
+          email,
+          eventDate,
+          eventTime,
+          venue,
+          packageId,
+          totalAmount,
+          bookingStatus: bookingStatus || 'PENDING'
         }
       });
-    });
-  } catch (error) {
-    console.error('Error in createBooking:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
+      
+    } catch (error) {
+      console.error('Error in createBooking:', error);
+      
+      // Handle specific database errors
+      if (error.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: 'Duplicate entry detected' });
+      }
+      
+      if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+        return res.status(400).json({ error: 'Referenced record does not exist' });
+      }
+      
+      // Handle custom validation errors
+      if (error.message.includes('Failed to insert')) {
+        return res.status(500).json({ error: 'Database operation failed', details: error.message });
+      }
+      
+      // Generic error response
+      res.status(500).json({ 
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+      });
+    }
+  };
 
   // Get bookings for calendar display
 const getCalendarBookings = async (req, res) => {
