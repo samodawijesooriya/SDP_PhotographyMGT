@@ -190,7 +190,7 @@ const Booking = ({setShowLogin}) => {
     };
     
     try {
-      const response = await fetch('http://your-backend-url/api/bookings', {
+      const response = await fetch('http://localhost:4001/api/bookings/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -271,7 +271,7 @@ const Booking = ({setShowLogin}) => {
                     <label>Full Name</label>
                     <input
                       type="text"
-                      name="name"
+                      name="fullName"
                       value={formData.fullName}
                       onChange={handleChange}
                       placeholder="Your Name"
@@ -295,7 +295,7 @@ const Booking = ({setShowLogin}) => {
                     <label>Mobile</label>
                     <input
                       type="tel"
-                      name="mobile"
+                      name="billingMobile"
                       value={formData.billingMobile}
                       onChange={handleChange}
                       placeholder="Mobile"
@@ -326,7 +326,7 @@ const Booking = ({setShowLogin}) => {
                     <label>Event Date</label>
                     <input
                       type="date"
-                      name="date"
+                      name="eventDate"
                       value={formData.eventDate}
                       onChange={handleChange}
                       required
@@ -337,7 +337,7 @@ const Booking = ({setShowLogin}) => {
                     <label>Event Time</label>
                     <input
                       type="time"
-                      name="time"
+                      name="eventTime"
                       value={formData.eventTime}
                       onChange={handleChange}
                       required
@@ -563,16 +563,7 @@ const Booking = ({setShowLogin}) => {
                               accept="image/*"
                             />
                           </div>
-                          <div className="form-group">
-                            <label>Notes for Bank Transfer</label>
-                            <textarea
-                              name="bankTransferNotes"
-                              value={formData.bankTransferNotes || ''}
-                              onChange={handleChange}
-                              placeholder="Add any notes regarding the bank transfer"
-                              rows="3"
-                            />
-                          </div>
+                          
                         </div>
                       )}
                     </>

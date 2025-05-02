@@ -4,4 +4,17 @@ npm run dev
 cd backend
 npm start
 
+need to add invoices after created a pending booking and the confirm booking
+no invoices for the pencil booking
+
+need to way to add the detail items from the photographers side for the packages
+
+booking confimation email
+
+need to connect userid and the customer table to create a relation
+then 1 to 1 one customer is one user like vise
+
+
+
+
 more notes here....
