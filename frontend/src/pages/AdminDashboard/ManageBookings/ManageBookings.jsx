@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import './ManageBookings.css';
-import { Eye, Trash2, Edit, User, Calendar, Clock, MapPin, Package, CreditCard } from 'lucide-react';
+import { Eye, Trash2, Edit, User, Calendar, Clock, MapPin, Package, CreditCard, Plus } from 'lucide-react';
 import axios from 'axios';
 import { StoreContext } from '../../../context/StoreContext';
 
@@ -16,6 +16,7 @@ const ManageBookings = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isAddBookingModalOpen, setIsAddBookingModalOpen] = useState(false);
     const [packages, setPackages] = useState([]);
+    const [activeTab, setActiveTab] = useState('all'); // Added for tab functionality
     
     const [editFormData, setEditFormData] = useState({
         fullName: '',
@@ -250,12 +251,57 @@ const ManageBookings = () => {
         }
     };
 
-    const filteredBookings = bookings.filter(booking =>
-        booking.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        booking.venue.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (booking.bookingStatus && booking.bookingStatus.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    // Function to check if a date is today
+    const isToday = (dateString) => {
+        const today = new Date();
+        const date = new Date(dateString);
+        return date.getDate() === today.getDate() &&
+            date.getMonth() === today.getMonth() &&
+            date.getFullYear() === today.getFullYear();
+    };
+
+    // Filter bookings based on active tab
+    const getFilteredBookingsByTab = () => {
+        let filtered = [...bookings]; // Start with all bookings
+        
+        // Apply tab filtering
+        switch (activeTab) {
+            case 'today':
+                filtered = filtered.filter(booking => 
+                    booking.createdAt && isToday(booking.createdAt)
+                );
+                break;
+            case 'Pencil':
+                filtered = filtered.filter(booking => 
+                    booking.bookingStatus === 'Pencil'
+                );
+                break;
+            case 'Pending':
+                filtered = filtered.filter(booking => 
+                    booking.bookingStatus === 'Pending'
+                );
+                break;
+            case 'Confirmed':
+                filtered = filtered.filter(booking => 
+                    booking.bookingStatus === 'Confirmed'
+                );
+                break;
+            case 'all':
+            default:
+                // No filtering required for "all"
+                break;
+        }
+        
+        // Then apply search term filtering
+        return filtered.filter(booking =>
+            booking.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            booking.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            booking.venue?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (booking.bookingStatus && booking.bookingStatus.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+    };
+
+    const filteredBookings = getFilteredBookingsByTab();
 
     // Function to trigger cleanup of outdated pencil bookings
     const triggerPencilBookingsCleanup = async () => {
@@ -314,6 +360,52 @@ const ManageBookings = () => {
         </div>
     </div>
 
+            <div className="tabs-container">
+                <button 
+                    className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('all')}
+                >
+                    All
+                    <span className="tab-badge">{bookings.length}</span>
+                </button>
+                <button 
+                    className={`tab-btn ${activeTab === 'today' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('today')}
+                >
+                    Today
+                    <span className="tab-badge">
+                        {bookings.filter(booking => booking.createdAt && isToday(booking.createdAt)).length}
+                    </span>
+                </button>
+                <button 
+                    className={`tab-btn ${activeTab === 'Pencil' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('Pencil')}
+                >
+                    Pencil
+                    <span className="tab-badge">
+                        {bookings.filter(booking => booking.bookingStatus === 'Pencil').length}
+                    </span>
+                </button>
+                <button 
+                    className={`tab-btn ${activeTab === 'Pending' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('Pending')}
+                >
+                    Pending
+                    <span className="tab-badge">
+                        {bookings.filter(booking => booking.bookingStatus === 'Pending').length}
+                    </span>
+                </button>
+                <button 
+                    className={`tab-btn ${activeTab === 'Confirmed' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('Confirmed')}
+                >
+                    Confirmed
+                    <span className="tab-badge">
+                        {bookings.filter(booking => booking.bookingStatus === 'Confirmed').length}
+                    </span>
+                </button>
+    
+            </div>
 
             <div className="table-container">
             <table className="bookings-table">

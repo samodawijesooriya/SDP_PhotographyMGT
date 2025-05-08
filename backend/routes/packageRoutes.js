@@ -10,7 +10,11 @@ import {
     updatePackage,
     deletePackage,
     getPackageById,
-    getPackageFormData} from '../controllers/packageController.js';
+    createPackageDetails,
+    getPackageFormData,
+    createPackageEvents,
+    createPackageItems
+} from '../controllers/packageController.js';
 
 
 const packageRouter = express.Router();
@@ -22,16 +26,16 @@ packageRouter.get('/', getAllPackages);
 packageRouter.get('/:packageId', getPackageById);
 
 // fetch events
-packageRouter.get('/events', getEvents);
+packageRouter.get('/pkg/events', getEvents);
 
 // fetch package tiers
-packageRouter.get('/tiers', getPackageTiers);
+packageRouter.get('/pkg/tiers', getPackageTiers);
 
 // fetch package items
-packageRouter.get('/items', getPackageItems);   
+packageRouter.get('/pkg/items', getPackageItems);   
 
 // fetch package details
-packageRouter.get('/details', getPackageDetails);
+packageRouter.get('/pkg/details', getPackageDetails);
 
 // Create a new package
 packageRouter.post('/create', createPackage);
@@ -41,5 +45,14 @@ packageRouter.put('/:packageId', updatePackage);
 
 // Delete a package
 packageRouter.delete('/:packageId', deletePackage);
+
+// add details to package
+packageRouter.post('/pkg/details/create', createPackageDetails);
+
+// add events to package
+packageRouter.post('/pkg/events/create', createPackageEvents);
+
+// add items to package
+packageRouter.post('/pkg/items/create', createPackageItems);
 
 export default packageRouter;

@@ -598,7 +598,8 @@
 }
 
 .cleanup-btn {
-  padding: 10px 16px;
+  padding: 13px 16px;
+  margin-bottom: 10px;
   background-color: #ef4444;
   color: white;
   border: none;
@@ -632,4 +633,77 @@
 
 .add-booking-btn:hover {
   background-color: #2563eb;
+}
+
+/* Tabs Styling */
+.tabs-container {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tab-btn {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: #3b82f6;
+}
+
+.tab-btn.active {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #3b82f6;
+}
+
+/* Tab Badges - show count of items in each tab */
+.tab-btn .tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin-left: 6px;
+  background-color: #e5e7eb;
+  color: #4b5563;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tab-btn.active .tab-badge {
+  background-color: #bfdbfe;
+  color: #1e40af;
+}
+
+@media (max-width: 700px) {
+  .tabs-container {
+    padding-bottom: 5px;
+  }
+  
+  .tab-btn {
+    padding: 10px 15px;
+    font-size: 13px;
+  }
 }

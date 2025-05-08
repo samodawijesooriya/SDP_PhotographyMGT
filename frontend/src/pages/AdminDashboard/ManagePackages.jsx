@@ -3,6 +3,9 @@ import './ManagePackages.css';
 import { Trash2, Edit, Plus, X, Save, ArrowLeft, Eye } from 'lucide-react';
 import axios from 'axios';
 import { StoreContext } from '../../context/StoreContext';
+import AddDetailModal from './AddDetailModal';
+import AddEventModal from './AddEventModal';
+import AddItemModal from './AddItemModal';
 
 const ManagePackages = () => {
     const { url } = useContext(StoreContext);
@@ -26,6 +29,10 @@ const ManagePackages = () => {
     const [successAlert, setSuccessAlert] = useState(null);
     const [alertType, setAlertType] = useState('success');
 
+    const [eventModalOpen, setEventModalOpen] = useState(false);
+    const [itemModalOpen, setItemModalOpen] = useState(false);
+    const [detailModalOpen, setDetailModalOpen] = useState(false);
+
     // Fetch functions
     const fetchPackages = async () => {
         try {
@@ -44,7 +51,7 @@ const ManagePackages = () => {
 
     const fetchEvents = async () => {
         try {
-            const response = await fetch(`${url}/api/packages/events`);
+            const response = await fetch(`${url}/api/packages/pkg/events`);
             const data = await response.json();
             setEvents(data);
         } catch (error) {
@@ -54,7 +61,7 @@ const ManagePackages = () => {
 
     const fetchPackageTiers = async () => {
         try {
-            const response = await fetch(`${url}/api/packages/tiers`);
+            const response = await fetch(`${url}/api/packages/pkg/tiers`);
             const data = await response.json();
             setPackageTiers(data);
         } catch (error) {
@@ -64,7 +71,7 @@ const ManagePackages = () => {
 
     const fetchPackageItems = async () => {
         try {
-            const response = await fetch(`${url}/api/packages/items`);
+            const response = await fetch(`${url}/api/packages/pkg/items`);
             const data = await response.json();
             setPackageItems(data);
         } catch (error) {
@@ -74,7 +81,7 @@ const ManagePackages = () => {
 
     const fetchPackageDetails = async () => {
         try {
-            const response = await fetch(`${url}/api/packages/details`);
+            const response = await fetch(`${url}/api/packages/pkg/details`);
             const data = await response.json();
             setPackageDetails(data);
         } catch (error) {
@@ -317,6 +324,39 @@ const ManagePackages = () => {
         }).format(amount);
     };
 
+    const handleAddEvent = () => {
+        setEventModalOpen(true);
+    };
+    
+    const handleAddItem = () => {
+        setItemModalOpen(true);
+    };
+    
+    const handleAddDetail = () => {
+        setDetailModalOpen(true);
+    };
+
+    // Handle event added callback
+    const handleEventAdded = (eventData, eventName) => {
+        fetchEvents();
+        showSuccessAlert(`Event "${eventName}" added successfully!`, 'success');
+    };
+
+    const handleItemAdded = (itemData, itemType) => {
+        fetchPackageItems();
+        if (itemType) {
+            showSuccessAlert(`Item "${itemType}" added successfully!`, 'success');
+        }
+    };
+
+    const handleDetailAdded = (detailData, detailDescription) => {
+        fetchPackageDetails();
+        if (detailDescription) {
+            showSuccessAlert(`Detail "${detailDescription}" added successfully!`, 'success');
+        }
+    };
+    
+
     const filteredPackages = packages.filter(pkg =>
         pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         pkg.coverageHours.toString().includes(searchTerm.toLowerCase())
@@ -463,12 +503,32 @@ const ManagePackages = () => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="search-input"
                     />
-                    <button 
-                        className="add-package-btn"
-                        onClick={() => setIsAddingNew(true)}
-                    >
-                        <Plus size={20} /> Add Package
-                    </button>
+                    <div className="action-buttons-container">
+                        <button 
+                            className="add-package-btn"
+                            onClick={() => setIsAddingNew(true)}
+                        >
+                            <Plus size={20} /> Add Package
+                        </button>
+                        <button 
+                            className="add-event-btn"
+                            onClick={handleAddEvent}
+                        >
+                            <Plus size={20} /> Add Event
+                        </button>
+                        <button 
+                            className="add-item-btn"
+                            onClick={handleAddItem}
+                        >
+                            <Plus size={20} /> Add Item
+                        </button>
+                        <button 
+                            className="add-detail-btn"
+                            onClick={handleAddDetail}
+                        >
+                            <Plus size={20} /> Add Detail
+                        </button>
+                    </div>
                 </div>
 
                 <div className="packages-table">
@@ -563,6 +623,22 @@ const ManagePackages = () => {
                         </div>
                     </div>
                 )}
+
+                <AddEventModal 
+                    isOpen={eventModalOpen}
+                    onClose={() => setEventModalOpen(false)}
+                    onEventAdded={handleEventAdded}
+                />
+                <AddItemModal 
+                    isOpen={itemModalOpen}
+                    onClose={() => setItemModalOpen(false)}
+                    onItemAdded={handleItemAdded}
+                />
+                <AddDetailModal 
+                    isOpen={detailModalOpen}
+                    onClose={() => setDetailModalOpen(false)}
+                    onDetailAdded={handleDetailAdded}
+                />
             </div>
         );
     }

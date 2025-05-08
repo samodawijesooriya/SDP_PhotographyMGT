@@ -53,7 +53,7 @@ const getPackageById = async (req, res) => {
         const [packages] = await db.promise().query(packageQuery, [packageId]);
         
         if (packages.length === 0) {
-            return res.status(404).json({ message: 'Package not found' });
+            return res.status(404).json({ message: 'Package not fo' });
         }
         
         res.json(packages[0]);
@@ -104,6 +104,61 @@ const getPackageDetails = async (req, res) => {
     } catch (error) {
         console.error('Error fetching package details:', error);
         res.status(500).json({ message: 'Error fetching package details', error: error.message });
+    }
+};
+
+// create new package details
+const createPackageDetails = async (req, res) => {
+    try {
+        const { detailDescription } = req.body;
+        const sqlInsert = 'INSERT INTO details (detailDescription) VALUES (?)';
+        const insertResult = await queryDatabase(sqlInsert, [detailDescription]);
+
+        if (insertResult.affectedRows > 0) {
+            res.json({ success: true, message: 'Package detail created successfully', detailId: insertResult.insertId });
+        }
+        else {
+            res.json({ success: false, message: 'Failed to create package detail' });
+        }
+    } catch (error) {
+        console.error('Error creating package detail:', error);
+        res.status(500).json({ message: 'Error creating package detail', error: error.message });
+    }
+}
+
+const createPackageEvents = async (req, res) => {
+    try {
+        const { eventName, description} = req.body;
+        const sqlInsert = 'INSERT INTO event (eventName, description) VALUES (?, ?)';
+        const insertResult = await queryDatabase(sqlInsert, [eventName, description]);
+
+        if (insertResult.affectedRows > 0) {
+            res.json({ success: true, message: 'Package event created successfully', eventId: insertResult.insertId });
+        }
+        else {
+            res.json({ success: false, message: 'Failed to create package event' });
+        }
+    } catch (error) {
+        console.error('Error creating package event:', error);
+        res.status(500).json({ message: 'Error creating package event', error: error.message });
+    }
+};
+
+const createPackageItems = async (req, res) => {   
+    try {
+        const { itemType, itemDescription } = req.body;
+        const sqlInsert = 'INSERT INTO items (itemType) VALUES ( ?)';
+        const insertResult = await queryDatabase(sqlInsert, [itemType]);
+        
+        if (insertResult.affectedRows > 0) {
+            res.json({ success: true, message: 'Package item created successfully', itemId: insertResult.insertId });
+        }
+        else {
+            res.json({ success: false, message: 'Failed to create package item' });
+        }   
+    } catch (error) {
+        console.error('Error creating package item:', error);
+        res.status(500).json({ message: 'Error creating package item', error: error.message });
     }
 };
 
@@ -270,7 +325,7 @@ const deletePackage = async (req, res) => {
         const packageResults = await queryDatabase(sqlCheckPackage, [packageId]);
 
         if (packageResults.length === 0) {
-            return res.json({ success: false, message: "Package not found" });
+            return res.json({ success: false, message: "Package not fou" });
         }
 
         // Delete related entries in packageItems
@@ -335,5 +390,8 @@ export {
     getPackageTiers,
     getPackageItems,
     getPackageDetails,
-    getPackageById
+    getPackageById,
+    createPackageDetails,
+    createPackageEvents, 
+    createPackageItems   
 };

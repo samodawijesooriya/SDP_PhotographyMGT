@@ -16,6 +16,7 @@ then 1 to 1 one customer is one user like vise
 
 cannot put same date for different users 
 
+Needed to check the bank deposit details when submiting
 
 
 more notes here....
