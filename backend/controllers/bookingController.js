@@ -72,7 +72,7 @@ const deleteBooking = async (req, res) => {
         }
         
         // Next, delete related payments (due to foreign key constraints)
-        const deletePaymentsQuery = 'DELETE FROM Payments WHERE bookingId = ?';
+        const deletePaymentsQuery = 'DELETE FROM Payment WHERE bookingId = ?';
         
         db.query(deletePaymentsQuery, [id], (paymentErr) => {
           if (paymentErr) {
@@ -92,10 +92,30 @@ const deleteBooking = async (req, res) => {
             if (results.affectedRows === 0) {
               return res.status(404).json({ error: 'Booking not found or already deleted' });
             }
-            
-            res.json({ 
-              message: 'Booking deleted successfully',
-              deletedId: id
+
+            const getCustomerQuery = 'SELECT customerId FROM booking WHERE bookingId = ?';
+
+            db.query(getCustomerQuery, [id], (customerErr, customerResults) => {
+              if (customerErr) {
+                console.error('Error fetching customer ID:', customerErr);
+                return res.status(500).json({ error: 'Failed to fetch customer ID' });
+              }
+              
+              const customerId = customerResults[0]?.customerId;
+              
+              // Delete related customer if no other bookings exist
+              const deleteCustomerQuery = 'DELETE FROM Customers WHERE customerId = ? AND NOT EXISTS (SELECT 1 FROM booking WHERE customerId = ?)';
+              
+              db.query(deleteCustomerQuery, [customerId, customerId], (deleteErr) => {
+                if (deleteErr) {
+                  console.error('Error deleting related customer:', deleteErr);
+                  return res.status(500).json({ error: 'Failed to delete related customer' });
+                }
+                res.json({ 
+                  message: 'Booking deleted successfully',
+                  deletedId: id
+                });
+              });
             });
           });
         });
@@ -123,7 +143,116 @@ const queryDatabase = (query, params) => {
   });
 };
 
-  // Create a new booking
+const createPendingBooking = async (req, res) => {
+  const{
+    fullName,
+    email,
+    billingMobile,
+    billingAddress,
+    packageId,
+    bookingStatus,
+    notes
+  } = req.body;
+
+  try{
+    if (!fullName || !email || !billingMobile || !packageId ) {
+      return res.status(400).json({ 
+        error: 'Missing required fields', 
+        requiredFields: ['fullName', 'email', 'billingMobile', 'eventDate', 'packageId', 'totalAmount', 'paymentMethod']
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Validate mobile number format (assuming 10-digit)
+    const mobileRegex = /^\d{10}$/;
+    if (!mobileRegex.test(billingMobile)) {
+      return res.status(400).json({ error: 'Invalid mobile number format' });
+    }
+
+    
+    // Check if customer already exists with the same name and email
+    const checkExistingCustomerQuery = 'SELECT customerId FROM Customers WHERE email = ? AND fullName = ? LIMIT 1';
+    const existingCustomer = await queryDatabase(checkExistingCustomerQuery, [email, fullName]);
+
+    let newCustomerId;
+
+    if (existingCustomer && existingCustomer.length > 0) {
+      // Use existing customer's ID
+      newCustomerId = existingCustomer[0].customerId;
+      console.log(`Using existing customer ID: ${newCustomerId}`);
+    } else {
+      // Customer doesn't exist, create a new one
+      // First, get the last customer ID
+      const lastCustomerQuery = 'SELECT customerId FROM Customers ORDER BY customerId DESC LIMIT 1';
+      const lastCustomer = await queryDatabase(lastCustomerQuery);
+      
+      // Generate new customer ID (increment from last one or start at 1)
+      newCustomerId = lastCustomer.length > 0 ? lastCustomer[0].customerId + 1 : 1;
+
+      // Insert new customer
+      const customerQuery = 'INSERT INTO Customers (customerId, fullName, email, billingMobile, billingAddress) VALUES (?, ?, ?, ?, ?)';
+      const customerResult = await queryDatabase(customerQuery, [newCustomerId, fullName, email, billingMobile, billingAddress]);
+
+      if (!customerResult || !customerResult.affectedRows) {
+        throw new Error('Failed to insert customer');
+      }
+    }
+
+    // Insert new booking
+    const lastBookingQuery = 'SELECT bookingId FROM booking ORDER BY bookingId DESC LIMIT 1';
+    const lastBooking = await queryDatabase(lastBookingQuery);
+    const newBookingId = lastBooking.length > 0 ? lastBooking[0].bookingId + 1 : 1;
+    
+    const bookingQuery = `INSERT INTO booking (bookingId, customerId, packageId, bookingStatus, notes) VALUES (?, ?, ?, ?, ?)`;
+    const bookingResult = await queryDatabase(bookingQuery, [newBookingId, newCustomerId, packageId, bookingStatus, notes]);
+    
+    if (!bookingResult || !bookingResult.affectedRows) {
+      throw new Error('Failed to insert booking');
+    }
+
+    // Return success response
+    res.status(201).json({ 
+      message: 'Pending Booking created successfully',
+      bookingId: newBookingId,
+      customerId: newCustomerId,
+      bookingDetails: {
+        fullName,
+        email,
+        packageId,
+        bookingStatus: bookingStatus
+      }
+    });
+  }catch(error){
+    console.error('Error in createBooking:', error);
+      
+      // Handle specific database errors
+      if (error.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: 'Duplicate entry detected' });
+      }
+      
+      if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+        return res.status(400).json({ error: 'Referenced record does not exist' });
+      }
+      
+      // Handle custom validation errors
+      if (error.message.includes('Failed to insert')) {
+        return res.status(500).json({ error: 'Database operation failed', details: error.message });
+      }
+      
+      // Generic error response
+      res.status(500).json({ 
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+      });
+    }
+  }
+
+// Create a new booking
   const createBooking = async (req, res) => {
     const {
       fullName,
@@ -134,9 +263,6 @@ const queryDatabase = (query, params) => {
       eventTime,
       venue,
       packageId,
-      packageName,
-      eventType,
-      coverageHours,
       totalAmount,
       bookingStatus,
       paymentMethod,
@@ -213,21 +339,34 @@ const queryDatabase = (query, params) => {
         }
       }
   
-      // First, get the last customer ID
-      const lastCustomerQuery = 'SELECT customerId FROM Customers ORDER BY customerId DESC LIMIT 1';
-      const lastCustomer = await queryDatabase(lastCustomerQuery);
       let newCreditCardId = null;
       let newDepositId = null;
-  
-      // Generate new customer ID (increment from last one or start at 1)
-      const newCustomerId = lastCustomer.length > 0 ? lastCustomer[0].customerId + 1 : 1;
-  
-      // Insert new customer
-      const customerQuery = 'INSERT INTO Customers (customerId, fullName, email, billingMobile, billingAddress) VALUES (?, ?, ?, ?, ?)';
-      const customerResult = await queryDatabase(customerQuery, [newCustomerId, fullName, email, billingMobile, billingAddress]);
-  
-      if (!customerResult || !customerResult.affectedRows) {
-        throw new Error('Failed to insert customer');
+
+      // Check if customer already exists with the same name and email
+      const checkExistingCustomerQuery = 'SELECT customerId FROM Customers WHERE email = ? AND fullName = ? LIMIT 1';
+      const existingCustomer = await queryDatabase(checkExistingCustomerQuery, [email, fullName]);
+
+      let newCustomerId;
+
+      if (existingCustomer && existingCustomer.length > 0) {
+        // Use existing customer's ID
+        newCustomerId = existingCustomer[0].customerId;
+      } else {
+        // Customer doesn't exist, create a new one
+        // First, get the last customer ID
+        const lastCustomerQuery = 'SELECT customerId FROM Customers ORDER BY customerId DESC LIMIT 1';
+        const lastCustomer = await queryDatabase(lastCustomerQuery);
+        
+        // Generate new customer ID (increment from last one or start at 1)
+        newCustomerId = lastCustomer.length > 0 ? lastCustomer[0].customerId + 1 : 1;
+
+        // Insert new customer
+        const customerQuery = 'INSERT INTO Customers (customerId, fullName, email, billingMobile, billingAddress) VALUES (?, ?, ?, ?, ?)';
+        const customerResult = await queryDatabase(customerQuery, [newCustomerId, fullName, email, billingMobile, billingAddress]);
+
+        if (!customerResult || !customerResult.affectedRows) {
+          throw new Error('Failed to insert customer');
+        }
       }
   
       // Check if the credit card details are provided
@@ -246,11 +385,11 @@ const queryDatabase = (query, params) => {
     
       // Check if the bank deposit details are provided
       if (paymentMethod === 'BANK_DEPOSIT' && bankReceiptRef && bankReceiptImage) {
-        const lastDepositQuery = 'SELECT depositId FROM Deposit ORDER BY depositId DESC LIMIT 1';
+        const lastDepositQuery = 'SELECT bankDepositId FROM bankdeposits ORDER BY bankDepositId DESC LIMIT 1';
         const lastDeposit = await queryDatabase(lastDepositQuery);
-        newDepositId = lastDeposit.length > 0 ? lastDeposit[0].depositId + 1 : 1;
+        newDepositId = lastDeposit.length > 0 ? lastDeposit[0].bankDepositId + 1 : 1;
         
-        const depositQuery = 'INSERT INTO Deposit (depositId, referenceNo, depositAmount, receiptImage) VALUES (?, ?, ?, ?)';
+        const depositQuery = 'INSERT INTO bankDeposits (bankDepositId, referenceNo, depositAmount, receiptImage) VALUES (?, ?, ?, ?)';
         const depositResult = await queryDatabase(depositQuery, [newDepositId, bankReceiptRef, totalAmount, bankReceiptImage]);
         
         if (!depositResult || !depositResult.affectedRows) {
@@ -264,7 +403,7 @@ const queryDatabase = (query, params) => {
       const newBookingId = lastBooking.length > 0 ? lastBooking[0].bookingId + 1 : 1;
       
       const bookingQuery = `INSERT INTO booking (bookingId, customerId, packageId, eventDate, eventTime, venue, bookingStatus, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-      const bookingResult = await queryDatabase(bookingQuery, [newBookingId, newCustomerId, packageId, eventDate, eventTime, venue, bookingStatus || 'PENDING', notes]);
+      const bookingResult = await queryDatabase(bookingQuery, [newBookingId, newCustomerId, packageId, eventDate, eventTime, venue,  bookingStatus, notes]);
       
       if (!bookingResult || !bookingResult.affectedRows) {
         throw new Error('Failed to insert booking');
@@ -284,7 +423,7 @@ const queryDatabase = (query, params) => {
         paymentMethod, 
         paymentMethod === 'BANK_DEPOSIT' ? newDepositId : null, 
         paymentMethod === 'CREDIT_CARD' ? newCreditCardId : null, 
-        bookingStatus || 'PENDING'
+        bookingStatus
       ]);
       
       if (!paymentResult || !paymentResult.affectedRows) {
@@ -305,7 +444,7 @@ const queryDatabase = (query, params) => {
           venue,
           packageId,
           totalAmount,
-          bookingStatus: bookingStatus || 'PENDING'
+          bookingStatus: bookingStatus
         }
       });
       
@@ -468,11 +607,13 @@ const getBookingsByDate = async (req, res) => {
   }
 };
 
+
   export {
     getAllBookings,
     deleteBooking,
     updateBooking,
     createBooking,
     getCalendarBookings,
-    getBookingsByDate
+    getBookingsByDate,
+    createPendingBooking
   };

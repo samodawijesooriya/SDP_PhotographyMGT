@@ -9,6 +9,7 @@ import {
     createPackage,
     updatePackage,
     deletePackage,
+    getPackageById,
     getPackageFormData} from '../controllers/packageController.js';
 
 
@@ -16,6 +17,9 @@ const packageRouter = express.Router();
 
 // Get all packages
 packageRouter.get('/', getAllPackages);
+
+// get package by ID
+packageRouter.get('/:packageId', getPackageById);
 
 // fetch events
 packageRouter.get('/events', getEvents);

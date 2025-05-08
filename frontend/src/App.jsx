@@ -15,6 +15,8 @@ import UserView from './pages/AdminView/UserView/UserView';
 import Packages from './pages/Packages/Packages';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import NotFound from './components/NotFound/NotFound';
+import PaymentSuccess from '../src/pages/Booking/PaymentSuccess';
+import BookingSuccess from './pages/Booking/Booking-success';
 
 // Protected route component for authenticated users
 const ProtectedRoute = ({ children }) => {
@@ -137,6 +139,10 @@ const AppContent = () => {
           
           {/* 404 page */}
           <Route path="*" element={<NotFound />} />
+
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+
+          <Route path="/booking-success" element={<BookingSuccess />} />
         </Routes>
       </div>
     </>

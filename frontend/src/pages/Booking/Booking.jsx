@@ -19,7 +19,7 @@ const Booking = ({setShowLogin}) => {
   const [packages, setPackages] = useState([]);
   
   let PACKAGE_ARRAY = [];
-  
+
   // Initialize formData with credit card fields and bank transfer fields
   const [formData, setFormData] = useState({
     // Customer Details
@@ -166,8 +166,8 @@ const Booking = ({setShowLogin}) => {
     let basePrice = 0;
     // This is a placeholder function - implement your actual pricing logic
     if(selectedPackage){
-      if(bookingStatus === 'pencil') {
-        basePrice = 0; // No payment for pencil booking
+      if(bookingStatus === 'Pencil') {
+        basePrice = 0; // No payment for Pencil booking
       } else if(bookingStatus === 'Pending') {
         basePrice = selectedPackage.investedAmount / 2; // 50% deposit
       }
@@ -183,28 +183,60 @@ const Booking = ({setShowLogin}) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Add the calculated total to form data
-    const dataToSubmit = {
-      ...formData,
-      totalAmount: calculateTotal(formData.bookingStatus)
-    };
-    
     try {
-      const response = await fetch('http://localhost:4001/api/bookings/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}` // Add token for authentication
-        },
-        body: JSON.stringify(dataToSubmit),
-      });
-      
-      if (response.ok) {
-        alert('Booking submitted successfully!');
-        // Redirect to payment processing page
-        navigate('/payment', { state: { bookingData: dataToSubmit } });
+      if(formData.bookingStatus === 'Pencil') {
+        // Prepare the data for pending booking
+        const pendingBookingData = {
+          fullName: formData.fullName,
+          email: formData.email,
+          billingMobile: formData.billingMobile,
+          billingAddress: formData.billingAddress,
+          packageId: formData.packageId,
+          packageName: formData.packageName,
+          bookingStatus: formData.bookingStatus,
+          notes: formData.notes
+        };
+        
+        const response = await fetch('http://localhost:4001/api/bookings/createPending', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}` // Add token for authentication
+          },
+          body: JSON.stringify(pendingBookingData),
+        });
+        
+        if (response.ok) {
+          alert('Pencil booking submitted successfully!');
+          navigate('/booking-success', { state: { bookingData: pendingBookingData } });
+        } else {
+          alert('Failed to submit pencil booking. Please try again.');
+        }
       } else {
-        alert('Failed to submit booking. Please try again.');
+        // Handle regular bookings with payment
+        // Add the calculated total to form data
+        const dataToSubmit = {
+          ...formData,
+          totalAmount: calculateTotal(formData.bookingStatus)
+        };
+
+        console.log('Data to submit:', dataToSubmit);
+        const response = await fetch('http://localhost:4001/api/bookings/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}` // Add token for authentication
+          },
+          body: JSON.stringify(dataToSubmit),
+        });
+        
+        if (response.ok) {
+          alert('Booking submitted successfully!');
+          // Redirect to payment processing page
+          navigate('/payment-success', { state: { bookingData: dataToSubmit } });
+        } else {
+          alert('Failed to submit booking. Please try again.');
+        }
       }
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -321,8 +353,25 @@ const Booking = ({setShowLogin}) => {
               {activeTab === 1 && (
                 <div className="tab-content">
                   <h3>Event Details</h3>
-                  
+
                   <div className="form-group">
+                    <label>Booking Type</label>
+                    <select
+                      name="bookingStatus"
+                      value={formData.bookingStatus}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="">Select Booking Type</option>
+                      <option value="Pencil">Pencil Booking (No deposit)</option>
+                      <option value="Pending">Pending Booking (Rs 20,000 deposit)</option>
+                      <option value="Confirmed">Confim Booking (100%)</option>
+                    </select>
+                  </div>
+                  
+                  { formData.bookingStatus !== 'Pencil' && (
+                    <>
+                    <div className="form-group">
                     <label>Event Date</label>
                     <input
                       type="date"
@@ -355,6 +404,14 @@ const Booking = ({setShowLogin}) => {
                       required
                     />
                   </div>
+                    </>
+                  )}
+                  {/* Show message explaining no payment for Pencil booking */}
+                  {formData.bookingStatus === 'Pencil' && (
+                    <div className="Pencil-booking-message">
+                      <p>No Event Details Required.</p>
+                    </div>
+                  )}
                 </div>
               )}
               
@@ -454,23 +511,10 @@ const Booking = ({setShowLogin}) => {
                     <div className="price-box"> LKR {calculateTotal(formData.bookingStatus)}</div>
                   </div>
                   
-                  <div className="form-group">
-                    <label>Booking Type</label>
-                    <select
-                      name="bookingStatus"
-                      value={formData.bookingStatus}
-                      onChange={handleChange}
-                      required
-                    >
-                      <option value="">Select Booking Type</option>
-                      <option value="pencil">Pencil Booking (No deposit)</option>
-                      <option value="half">Pending Booking (Rs 20,000 deposit)</option>
-                      <option value="full">Confim Booking (100%)</option>
-                    </select>
-                  </div>
                   
-                  {/* Only show payment method if booking type is NOT pencil */}
-                  {formData.bookingStatus && formData.bookingStatus !== 'pencil' && (
+                  
+                  {/* Only show payment method if booking type is NOT Pencil */}
+                  {formData.bookingStatus !== 'Pencil' && (
                     <>
                       <div className="form-group">
                         <label>Payment Method</label>
@@ -478,7 +522,7 @@ const Booking = ({setShowLogin}) => {
                           name="paymentMethod"
                           value={formData.paymentMethod}
                           onChange={handleChange}
-                          required={formData.bookingStatus !== 'pencil'}
+                          required={formData.bookingStatus !== 'Pencil'}
                         >
                           <option value="">Select Payment Method</option>
                           <option value="creditCard">Credit Card</option>
@@ -497,7 +541,7 @@ const Booking = ({setShowLogin}) => {
                               value={formData.cardNumber}
                               onChange={handleChange}
                               placeholder="Card Number"
-                              required={formData.bookingStatus !== 'pencil' && formData.paymentMethod === 'creditCard'}
+                              required={formData.bookingStatus !== 'Pencil' && formData.paymentMethod === 'creditCard'}
                             />
                           </div>
 
@@ -509,7 +553,7 @@ const Booking = ({setShowLogin}) => {
                               value={formData.cardholderName}
                               onChange={handleChange}
                               placeholder="Cardholder Name"
-                              required={formData.bookingStatus !== 'pencil' && formData.paymentMethod === 'creditCard'}
+                              required={formData.bookingStatus !== 'Pencil' && formData.paymentMethod === 'creditCard'}
                             />
                           </div>
 
@@ -521,7 +565,7 @@ const Booking = ({setShowLogin}) => {
                               value={formData.expiryDate}
                               onChange={handleChange}
                               placeholder="MM/YY"
-                              required={formData.bookingStatus !== 'pencil' && formData.paymentMethod === 'creditCard'}
+                              required={formData.bookingStatus !== 'Pencil' && formData.paymentMethod === 'creditCard'}
                             />
                           </div>
 
@@ -533,7 +577,7 @@ const Booking = ({setShowLogin}) => {
                               value={formData.cvv}
                               onChange={handleChange}
                               placeholder="CVV"
-                              required={formData.bookingStatus !== 'pencil' && formData.paymentMethod === 'creditCard'}
+                              required={formData.bookingStatus !== 'Pencil' && formData.paymentMethod === 'creditCard'}
                             />
                           </div>
                         </div>
@@ -550,7 +594,7 @@ const Booking = ({setShowLogin}) => {
                               value={formData.bankReceiptRef}
                               onChange={handleChange}
                               placeholder="Reference Number"
-                              required={formData.bookingStatus !== 'pencil' && formData.paymentMethod === 'bankTransfer'}
+                              required={formData.bookingStatus !== 'Pencil' && formData.paymentMethod === 'bankTransfer'}
                             />
                           </div>
 
@@ -569,9 +613,9 @@ const Booking = ({setShowLogin}) => {
                     </>
                   )}
                   
-                  {/* Show message explaining no payment for pencil booking */}
-                  {formData.bookingStatus === 'pencil' && (
-                    <div className="pencil-booking-message">
+                  {/* Show message explaining no payment for Pencil booking */}
+                  {formData.bookingStatus === 'Pencil' && (
+                    <div className="Pencil-booking-message">
                       <p>No payment is required for Pencil Booking. This booking will be held temporarily without a deposit.</p>
                     </div>
                   )}
@@ -593,15 +637,18 @@ const Booking = ({setShowLogin}) => {
                     </div>
                     
                     <hr className="review-divider" />
-                    
-                    <div className="review-section">
+                    {formData.bookingStatus !== 'Pencil' && (
+                      <>
+                      <div className="review-section">
                       <h4>Event Details</h4>
                       <div className="review-item"><strong>Date:</strong> {formData.eventDate}</div>
                       <div className="review-item"><strong>Time:</strong> {formData.eventTime}</div>
                       <div className="review-item"><strong>Venue:</strong> {formData.venue}</div>
-                    </div>
+                      </div>
                     
-                    <hr className="review-divider" />
+                      <hr className="review-divider" />
+                      </>
+                    )}
                     
                     <div className="review-section">
                       <h4>Package Details</h4>
@@ -616,27 +663,27 @@ const Booking = ({setShowLogin}) => {
                       <h4>Payment Details</h4>
                       <div className="review-item"><strong>Total Amount:</strong> LKR {calculateTotal(formData.bookingStatus)}</div>
                       
-                      {formData.bookingStatus === 'pencil' && (
+                      {formData.bookingStatus === 'Pencil' && (
                         <>
                           <div className="review-item"><strong>Payment Amount:</strong> No Payment</div>
                         </>
                       )}
                       
-                      {formData.bookingStatus === 'half' && (
+                      {formData.bookingStatus === 'Pending' && (
                         <>
                           <div className="review-item"><strong>Payment Amount:</strong> LKR 20,000</div>
                           <div className="review-item"><strong>Balance:</strong> LKR {calculateTotal(formData.bookingStatus) - 20000}</div>
                         </>
                       )}
                       
-                      {formData.bookingStatus === 'full' && (
+                      {formData.bookingStatus === 'Confirmed' && (
                         <div className="review-item"><strong>Payment Amount:</strong> LKR {calculateTotal(formData.bookingStatus)} (Full Payment)</div>
                       )}
                       
                       <div className="review-item"><strong>Booking Type:</strong> {
-                        formData.bookingStatus === 'pencil' ? 'Pencil Booking (Rs 20,000 deposit)' :
-                        formData.bookingStatus === 'half' ? 'Pending Booking (Rs 20,000 deposit)' :
-                        formData.bookingStatus === 'full' ? 'Confirm Booking (100%)' : ''
+                        formData.bookingStatus === 'Pencil' ? 'Pencil Booking (No deposit)' :
+                        formData.bookingStatus === 'Pending' ? 'Pending Booking (Rs 20,000 deposit)' :
+                        formData.bookingStatus === 'Confirmed' ? 'Confirm Booking (100%)' : ''
                       }</div>
                       <div className="review-item"><strong>Payment Method:</strong> {
                         formData.paymentMethod === 'creditCard' ? 'Credit Card' :
@@ -673,7 +720,7 @@ const Booking = ({setShowLogin}) => {
                 
                 {activeTab === 4 && (
                   <button type="submit" className="submit-btn">
-                    Confirm & Proceed to Payment
+                    {formData.bookingStatus === 'Pencil' ? 'Confirm Pencil Booking' : 'Confirm & Proceed to Payment'}
                   </button>
                 )}
               </div>

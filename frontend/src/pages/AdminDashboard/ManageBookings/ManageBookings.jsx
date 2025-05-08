@@ -257,6 +257,30 @@ const ManageBookings = () => {
         (booking.bookingStatus && booking.bookingStatus.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
+    // Function to trigger cleanup of outdated pencil bookings
+    const triggerPencilBookingsCleanup = async () => {
+        try {
+        setIsLoading(true);
+        const response = await axios.post(`${url}/api/bookings/cleanup`);
+        
+        const { removedBookings } = response.data;
+        
+        if (removedBookings > 0) {
+            showSuccessAlert(`Removed ${removedBookings} outdated pencil bookings`, 'delete');
+        } else {
+            showSuccessAlert('No outdated pencil bookings found', 'info');
+        }
+        
+        // Refresh bookings list
+        fetchBookings();
+        } catch (error) {
+        console.error('Error cleaning up pending bookings:', error);
+        setError('Failed to clean up pending bookings. Please try again.');
+        } finally {
+        setIsLoading(false);
+        }
+    };
+
     useEffect(() => {
         fetchBookings();
         fetchPackages();
@@ -273,6 +297,12 @@ const ManageBookings = () => {
     return (
         <div className="bookings-management">
             <div className="header-container">
+            <button 
+            className="cleanup-btn"
+            onClick={triggerPencilBookingsCleanup}
+            >
+            Clean Up Old Pencil Bookings
+            </button>
         <div className="search-container">
             <input
                 type="text"

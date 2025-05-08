@@ -8,6 +8,9 @@ import 'dotenv/config';
 import packageRouter from './routes/packageRoutes.js';
 import bookingRouter from './routes/bookingRoutes.js';
 import customerRouter from './routes/customerRoutes.js';
+import cron from 'node-cron';
+import cleanupPencilBookings from './controllers/cleanup-bookings.js';
+import emailRouter from './routes/emailRoutes.js';
 
 // app config
 dotenv.config();
@@ -28,6 +31,8 @@ app.use('/api/bookings', bookingRouter);
 
 app.use('/api/customers', customerRouter);
 
+app.use('/api/email', emailRouter);
+
 // request the data from the server
 app.get("/", (req, res) => {
     res.send("API Working")
@@ -40,6 +45,11 @@ app.get('/user', (req, res)=>{
         return res.json(data);
     })
 })
+
+// Schedule task to run at midnight every day
+cron.schedule('0 0 * * *', () => {
+    cleanupPencilBookings();
+  });
 
 // to run the server
 app.listen(port, () => {

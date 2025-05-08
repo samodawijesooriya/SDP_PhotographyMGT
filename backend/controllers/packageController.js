@@ -28,6 +28,41 @@ const getAllPackages = async (req, res) => {
     }
 };
 
+// Get package details by ID
+const getPackageById = async (req, res) => {
+    try {
+        const { packageId } = req.params;
+        
+        const packageQuery = `
+            SELECT p.packageId, p.packageName, e.eventName, pt.packageTierName, 
+                   p.investedAmount, p.coverageHours,
+                   GROUP_CONCAT(DISTINCT CONCAT(i.itemType, ':', pi.quantity) SEPARATOR '; ') AS items,
+                   GROUP_CONCAT(DISTINCT d.detailDescription SEPARATOR '; ') AS details
+            FROM package p
+            LEFT JOIN event e ON p.eventId = e.eventId
+            LEFT JOIN packageTier pt ON p.packageTierId = pt.packageTierId
+            LEFT JOIN packageItems pi ON p.packageId = pi.packageId
+            LEFT JOIN items i ON pi.itemId = i.itemId
+            LEFT JOIN packageDetails pd ON p.packageId = pd.packageId
+            LEFT JOIN details d ON pd.detailId = d.detailId
+            WHERE p.packageId = ?
+            GROUP BY p.packageId, p.packageName, e.eventName, pt.packageTierName, 
+                     p.investedAmount, p.coverageHours
+        `;
+
+        const [packages] = await db.promise().query(packageQuery, [packageId]);
+        
+        if (packages.length === 0) {
+            return res.status(404).json({ message: 'Package not found' });
+        }
+        
+        res.json(packages[0]);
+    } catch (error) {
+        console.error('Error fetching package:', error);
+        res.status(500).json({ message: 'Error fetching package details', error: error.message });
+    }
+};
+
 // Get all events
 const getEvents = async (req, res) => {
     try {   
@@ -300,4 +335,5 @@ export {
     getPackageTiers,
     getPackageItems,
     getPackageDetails,
+    getPackageById
 };

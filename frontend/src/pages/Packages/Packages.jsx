@@ -244,46 +244,10 @@ const Packages = () => {
             console.error('Error fetching packages:', error);
             setError('Failed to fetch packages. Please try again.');
             
-            // Fallback to example data if fetch fails
-            setPackages(samplePackages);
         } finally {
             setLoading(false);
         }
     };
-
-    // Example data for fallback
-    const samplePackages = [
-      {
-        id: 1,
-        packageName: "Wedding Lite Package",
-        coverageHours: 10,
-        eventName: "Wedding",
-        packageTierName: "Classic",
-        investedAmount: "90000.00",
-        items: "Slideshow:1; Wooden Framed Portrait:1",
-        details: "10 Hours Event Coverage; 2 Professional Photographers; Online Gallery; High-Resolution Digital Files"
-      },
-      {
-        id: 2,
-        packageName: "Premium Wedding Collection",
-        coverageHours: 12,
-        eventName: "Wedding",
-        packageTierName: "Premium",
-        investedAmount: "150000.00",
-        items: "Slideshow:1; Wooden Framed Portrait:2; Premium Photo Album:1",
-        details: "12 Hours Event Coverage; 3 Professional Photographers; Engagement Session Included; Online Gallery with Unlimited Downloads; High-Resolution Digital Files; Same-Day Edit Video"
-      },
-      {
-        id: 3,
-        packageName: "Birthday Basic Package",
-        coverageHours: 4,
-        eventName: "Birthday",
-        packageTierName: "Basic",
-        investedAmount: "35000.00",
-        items: "Digital Album:1",
-        details: "4 Hours Event Coverage; 1 Professional Photographer; Online Gallery; High-Resolution Digital Files"
-      }
-    ];
 
     useEffect(() => {
         fetchPackages();

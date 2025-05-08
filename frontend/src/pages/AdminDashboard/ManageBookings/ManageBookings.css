@@ -7,7 +7,6 @@
   min-height: calc(100vh - 80px);
 }
 
-
 .search-container {
   width: 100%;
   margin-bottom: 25px;
@@ -596,6 +595,25 @@
   flex: 1;
   margin-right: 15px;
   margin-bottom: 0;
+}
+
+.cleanup-btn {
+  padding: 10px 16px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+  margin-right: 15px;
+}
+
+.cleanup-btn:hover {
+  background-color: #dc2626;
 }
 
 .add-booking-btn {
