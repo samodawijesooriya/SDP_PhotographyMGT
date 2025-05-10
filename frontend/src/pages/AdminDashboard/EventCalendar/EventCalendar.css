@@ -216,7 +216,8 @@
 }
 
 .event-title {
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 1rem;
   margin-bottom: 4px;
   white-space: nowrap;
   overflow: hidden;

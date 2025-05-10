@@ -20,6 +20,11 @@ const Booking = ({setShowLogin}) => {
   
   let PACKAGE_ARRAY = [];
 
+  const [existingBookings, setExistingBookings] = useState([]);
+  const [dateError, setDateError] = useState('');
+  const [showDateError, setShowDateError] = useState(false);
+  const [isDateAvailable, setIsDateAvailable] = useState(true);
+
   // Initialize formData with credit card fields and bank transfer fields
   const [formData, setFormData] = useState({
     // Customer Details
@@ -57,6 +62,58 @@ const Booking = ({setShowLogin}) => {
     // Additional Notes
     notes: ''
   });
+
+  // Fetch existing bookings for date validation
+  const fetchExistingBookings = async () => {
+    try {
+      const response = await axios.get(`${url}/api/bookings/dates`);
+      setExistingBookings(response.data);
+    } catch (error) {
+      console.error('Error fetching booking dates:', error);
+    }
+  };
+
+  // Call this function when component mounts
+  useEffect(() => {
+    fetchPackages();
+    fetchExistingBookings(); // Add this new function call
+  }, []); 
+
+  // Helper function to check if a date is in the past or today
+  const isPastOrToday = (dateString) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); 
+
+    const selectedDate = new Date(dateString);
+    selectedDate.setHours(0, 0, 0, 0);
+    return selectedDate <= today;
+  };
+
+  // Check if a date is already booked
+  const checkDateAvailability = (date) => {
+    // Return true if date is available, false if it's booked
+    if (!date) return true; // No date selected yet
+    
+    // Convert date string to Date object for comparison
+    const selectedDate = new Date(date);
+    
+    // Reset the time part to compare dates only
+    selectedDate.setHours(0, 0, 0, 0);
+    
+    // Check if the date is in the past or today
+    if (isPastOrToday(date)) {
+      return false;
+    }
+    
+    // Check if the date exists in our bookings
+    const isBooked = existingBookings.some(booking => {
+      const bookingDate = new Date(booking.eventDate);
+      bookingDate.setHours(0, 0, 0, 0);
+      return bookingDate.getTime() === selectedDate.getTime();
+    });
+    
+    return !isBooked;
+  };
 
   useEffect(() => {
     const checkLoginStatus = () => {
@@ -126,9 +183,38 @@ const Booking = ({setShowLogin}) => {
     console.error('Error fetching packages:', error);
     }
   }; 
-
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    // Special handling for event date to check availability
+    if (name === 'eventDate') {
+      if (value) {
+        // First check if it's a past date
+        if (isPastOrToday(value)) {
+          setIsDateAvailable(false);
+          setDateError('Please select a future date. Past dates are not available for booking.');
+          setShowDateError(true);
+        } else {
+          // Then check if the date is already booked
+          const isAvailable = checkDateAvailability(value);
+          setIsDateAvailable(isAvailable);
+          
+          if (!isAvailable) {
+            setDateError('This date is already booked. Please select a different date.');
+            setShowDateError(true);
+          } else {
+            setDateError('');
+            setShowDateError(false);
+          }
+        }
+      } else {
+        // No date selected
+        setIsDateAvailable(true);
+        setDateError('');
+        setShowDateError(false);
+      }
+    }
+
     setFormData(prevData => ({
       ...prevData,
       [name]: type === 'checkbox' ? checked : value
@@ -149,12 +235,37 @@ const Booking = ({setShowLogin}) => {
     // Clear the search
     setSearchTerm('');
   };
-
   const nextTab = () => {
+    // If we're on the Event Details tab (tab 1) and moving forward
+    if (activeTab === 1) {
+      // Only for non-Pencil bookings that require dates
+      if (formData.bookingStatus !== 'Pencil') {
+        // Check if date is selected
+        if (!formData.eventDate) {
+          alert('Please select an event date.');
+          return;
+        }
+        
+        // Check if selected date is valid (not past or already booked)
+        if (isPastOrToday(formData.eventDate)) {
+          alert('Please select a future date. Past dates are not available for booking.');
+          return;
+        }
+        
+        // Check if date is available (not already booked)
+        if (!isDateAvailable) {
+          alert('This date is already booked. Please select an available date before proceeding.');
+          return;
+        }
+      }
+    }
+    
+    // Original next tab logic
     if (activeTab < 4) {
       setActiveTab(activeTab + 1);
     }
   };
+
 
   const prevTab = () => {
     if (activeTab > 0) {
@@ -177,11 +288,35 @@ const Booking = ({setShowLogin}) => {
         basePrice = selectedPackage.investedAmount; // Default to full payment
       } 
     }
-    return basePrice;
+    return basePrice.toString();
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // For non-Pencil bookings, validate date availability again
+    if (formData.bookingStatus !== 'Pencil') {
+      // Check if date is selected
+      if (!formData.eventDate) {
+        alert('Please select an event date.');
+        setActiveTab(1); // Go back to the Event Details tab
+        return;
+      }
+      
+      // Check if selected date is in the past
+      if (isPastOrToday(formData.eventDate)) {
+        alert('Please select a future date. Past dates are not available for booking.');
+        setActiveTab(1); // Go back to the Event Details tab
+        return;
+      }
+      
+      // Check if the date is already booked
+      if (!isDateAvailable) {
+        alert('This date is already booked. Please select a different date.');
+        setActiveTab(1); // Go back to the Event Details tab
+        return;
+      }
+    }
     
     try {
       if(formData.bookingStatus === 'Pencil') {
@@ -196,8 +331,7 @@ const Booking = ({setShowLogin}) => {
           bookingStatus: formData.bookingStatus,
           notes: formData.notes
         };
-        
-        const response = await fetch('http://localhost:4001/api/bookings/createPending', {
+          const response = await fetch(`${url}/api/bookings/createPending`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -207,35 +341,51 @@ const Booking = ({setShowLogin}) => {
         });
         
         if (response.ok) {
-          alert('Pencil booking submitted successfully!');
+          console.log('Pencil booking submitted successfully!');
           navigate('/booking-success', { state: { bookingData: pendingBookingData } });
         } else {
           alert('Failed to submit pencil booking. Please try again.');
         }
       } else {
-        // Handle regular bookings with payment
-        // Add the calculated total to form data
-        const dataToSubmit = {
-          ...formData,
-          totalAmount: calculateTotal(formData.bookingStatus)
-        };
+        // Handle regular bookings with payment\
+        // Create FormData object instead of JSON
+        const formDataToSubmit = new FormData();
+        
+        const totalAmount = calculateTotal(formData.bookingStatus);
 
-        console.log('Data to submit:', dataToSubmit);
-        const response = await fetch('http://localhost:4001/api/bookings/create', {
+        // Add all the form fields to the FormData
+        Object.keys(formData).forEach(key => {
+          // Skip bankReceiptImage as it's handled separately
+          if (key !== 'bankReceiptImage') {
+            formDataToSubmit.append(key, formData[key]);
+          }
+        });
+        
+        // Add the calculated total to form data
+        formDataToSubmit.append('totalAmount', totalAmount);
+
+          // Add the file if it exists
+        if (formData.bankReceiptImage && formData.paymentMethod === 'bankTransfer') {
+          formDataToSubmit.append('bankReceiptImage', formData.bankReceiptImage);
+        }
+        
+        console.log('Data to submit:', Object.fromEntries(formDataToSubmit));
+        // Update the fetch call to not set Content-Type header (browser will set it with boundary)
+        const response = await fetch(`${url}/api/bookings/create`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}` // Add token for authentication
+            'Authorization': `Bearer ${localStorage.getItem('token')}` // Keep only the auth header
           },
-          body: JSON.stringify(dataToSubmit),
+          body: formDataToSubmit, // Send the FormData object directly
         });
         
         if (response.ok) {
-          alert('Booking submitted successfully!');
+          console.log('Booking submitted successfully!');
           // Redirect to payment processing page
-          navigate('/payment-success', { state: { bookingData: dataToSubmit } });
+          navigate('/payment-success', { state: { bookingData: Object.fromEntries(formDataToSubmit) } });
         } else {
           alert('Failed to submit booking. Please try again.');
+          console.error('Error response:', await response.json());
         }
       }
     } catch (error) {
@@ -370,16 +520,18 @@ const Booking = ({setShowLogin}) => {
                   </div>
                   
                   { formData.bookingStatus !== 'Pencil' && (
-                    <>
-                    <div className="form-group">
+                    <>                    <div className="form-group">
                     <label>Event Date</label>
                     <input
                       type="date"
                       name="eventDate"
                       value={formData.eventDate}
                       onChange={handleChange}
+                      className={!isDateAvailable ? 'date-error' : ''}
                       required
                     />
+                    <br/>
+                    {dateError && <div className="error-message">{dateError}</div>}
                   </div>
                   
                   <div className="form-group">
@@ -581,11 +733,20 @@ const Booking = ({setShowLogin}) => {
                             />
                           </div>
                         </div>
-                      )}
-
-                      {/* Bank Transfer Details - Conditional Rendering */}
+                      )}                      {/* Bank Transfer Details - Conditional Rendering */}
                       {formData.paymentMethod === 'bankTransfer' && (
                         <div className="bank-transfer-details">
+                          <div className="bank-account-info">
+                            <h4>Bank Account Details</h4>
+                            <div className="bank-info-container">
+                              <p><strong>Account Name:</strong> Pathum L Weerasighe Photography</p>
+                              <p><strong>Bank Name:</strong> Bank of Ceylon</p>
+                              <p><strong>Account Number:</strong> 85471234</p>
+                              <p><strong>Branch:</strong> Kegalle Branch</p>
+                              <p className="bank-transfer-note">Please make the payment and upload the receipt below. Include your name or booking date as reference.</p>
+                            </div>
+                          </div>
+
                           <div className="form-group">
                             <label>Receipt Reference Number</label>
                             <input
@@ -603,7 +764,10 @@ const Booking = ({setShowLogin}) => {
                             <input
                               type="file"
                               name="bankReceiptImage"
-                              onChange={(e) => setFormData({ ...formData, bankReceiptImage: e.target.files[0] })}
+                              onChange={(e) => setFormData({ 
+                                ...formData, 
+                                bankReceiptImage: e.target.files[0]  // Store the actual file object
+                              })}
                               accept="image/*"
                             />
                           </div>

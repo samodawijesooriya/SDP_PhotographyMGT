@@ -10,7 +10,9 @@ const AddCustomerForm = ({ isOpen, onClose, onCustomerAdded }) => {
     fullName: '',
     billingAddress: '',
     email: '',
-    billingMobile: ''
+    billingMobile: '',
+    username: '',
+    password: ''
   });
   
   const [error, setError] = useState('');
@@ -29,6 +31,7 @@ const AddCustomerForm = ({ isOpen, onClose, onCustomerAdded }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
 
     try {
       const response = await axios.post(`${url}/api/customers/register`, formData, {
@@ -37,12 +40,32 @@ const AddCustomerForm = ({ isOpen, onClose, onCustomerAdded }) => {
         }
       });
 
-      console.log('Token:', response.data.token);
-      console.log('Success message:', 'Customer created successfully!');
-      onCustomerAdded(response.data); // Changed from data to response.data
+      console.log('Response:', response.data);
       
-
+      if (response.data.success) {
+        setSuccess('Customer created successfully!');
+        onCustomerAdded(response.data);
+        
+        // Reset form after successful submission
+        setFormData({
+          fullName: '',
+          billingAddress: '',
+          email: '',
+          billingMobile: '',
+          username: '',
+          password: ''
+        });
+        
+        // Close modal after short delay to show success message
+        setTimeout(() => {
+          onClose();
+        }, 1500);
+      } else {
+        // The API returned a success: false response
+        setError(response.data.message || 'Failed to create customer');
+      }
     } catch (err) {
+      console.error('Error creating customer:', err);
       setError(err.response?.data?.message || err.message || 'Failed to create customer');
     } finally {
       setLoading(false);
@@ -58,7 +81,6 @@ const AddCustomerForm = ({ isOpen, onClose, onCustomerAdded }) => {
   };
 
   return (
-    
     <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
@@ -78,11 +100,7 @@ const AddCustomerForm = ({ isOpen, onClose, onCustomerAdded }) => {
           </div>
         </div>
 
-
-
         {error && <div className="error-message">{error}</div>}
-        {success && <div className="success-message">{success}</div>}
-
 
         <form onSubmit={handleSubmit} className="add-user-form">
           <div className="form-group">
@@ -106,13 +124,35 @@ const AddCustomerForm = ({ isOpen, onClose, onCustomerAdded }) => {
               required
             />
           </div>
-
+          
           <div className="form-group">
             <label>Email</label>
             <input
               type="email"
               name="email"
               value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Username</label>
+            <input
+              type="text"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              required
+            />
+          </div>
+          
+          <div className="form-group">
+            <label>Password</label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
               onChange={handleChange}
               required
             />
@@ -147,7 +187,6 @@ const AddCustomerForm = ({ isOpen, onClose, onCustomerAdded }) => {
           </div>
         </form>
       </div>
-      
     </div>
   );
 };

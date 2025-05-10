@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import './ManagePackages.css';
-import { Trash2, Edit, Plus, X, Save, ArrowLeft, Eye } from 'lucide-react';
+import { Trash2, Edit, Plus, X, Save, ArrowLeft, Eye, Database, Calendar, Box, FileText } from 'lucide-react';
 import axios from 'axios';
 import { StoreContext } from '../../context/StoreContext';
 import AddDetailModal from './AddDetailModal';
@@ -356,6 +356,45 @@ const ManagePackages = () => {
         }
     };
     
+    // New handlers for deleting events, items, and details
+    const handleDeleteEvent = async (eventId, eventName) => {
+        if (window.confirm(`Are you sure you want to delete the event "${eventName}"?`)) {
+            try {
+                await axios.delete(`${url}/api/packages/pkg/events/${eventId}`);
+                showSuccessAlert(`Event "${eventName}" deleted successfully!`, 'delete');
+                fetchEvents();
+            } catch (error) {
+                console.error('Error deleting event:', error);
+                setError('Failed to delete event. Please try again.');
+            }
+        }
+    };
+    
+    const handleDeleteItem = async (itemId, itemType) => {
+        if (window.confirm(`Are you sure you want to delete the item "${itemType}"?`)) {
+            try {
+                await axios.delete(`${url}/api/packages/pkg/items/${itemId}`);
+                showSuccessAlert(`Item "${itemType}" deleted successfully!`, 'delete');
+                fetchPackageItems();
+            } catch (error) {
+                console.error('Error deleting item:', error);
+                setError('Failed to delete item. Please try again.');
+            }
+        }
+    };
+    
+    const handleDeleteDetail = async (detailId, detailDescription) => {
+        if (window.confirm(`Are you sure you want to delete the detail "${detailDescription}"?`)) {
+            try {
+                await axios.delete(`${url}/api/packages/pkg/details/${detailId}`);
+                showSuccessAlert(`Detail "${detailDescription}" deleted successfully!`, 'delete');
+                fetchPackageDetails();
+            } catch (error) {
+                console.error('Error deleting detail:', error);
+                setError('Failed to delete detail. Please try again.');
+            }
+        }
+    };
 
     const filteredPackages = packages.filter(pkg =>
         pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()) ||

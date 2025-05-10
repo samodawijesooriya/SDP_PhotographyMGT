@@ -276,12 +276,12 @@
 .price-box {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #27ae60;
+  color: #3d300c9f;
   text-align: center;
   padding: 15px;
   background-color: #f0f7f4;
   border-radius: 5px;
-  border-left: 5px solid #27ae60;
+  border-left: 5px solid #c5a101;
 }
 
 /* Search Results Styles */
@@ -356,7 +356,7 @@
 }
 
 .search-result-price {
-  color: #27ae60;
+  color: #fcf0cf9f;
   font-weight: 500;
   font-size: 0.95rem;
 }
@@ -414,11 +414,10 @@
 
 /* Bank Transfer Details Styling */
 .bank-transfer-details {
-  background-color: #f9f9f9;
+  background-color: #fcf0cf9f;
   border-radius: 8px;
   padding: 20px;
   margin-top: 20px;
-  border-left: 4px solid #27ae60;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
@@ -442,6 +441,37 @@
 
 .bank-transfer-details input[type="file"]:hover {
   background-color: #f0f7f4;
+}
+
+.bank-account-info {
+  margin-bottom: 20px;
+}
+
+.bank-account-info h4 {
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+  border-bottom: 1px solid #b49c5a;
+  padding-bottom: 8px;
+}
+
+.bank-info-container {
+  background-color: white;
+  border-radius: 6px;
+  padding: 15px;
+  border: 1px solid #e0e0e0;
+}
+
+.bank-info-container p {
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+.bank-transfer-note {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #ccc;
+  color: #e67e22;
+  font-style: italic;
 }
 
 /* Two column layout for card details */
@@ -511,3 +541,24 @@
   line-height: 1.5;
 }
 
+.date-error {
+    border: 2px solid #ff0000 !important;
+    background-color: #fff0f0;
+  }
+  
+.error-message {
+  color: #ff0000;
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+input[type="date"].date-error:hover::after {
+  content: "This date is already booked";
+  position: absolute;
+  background: #333;
+  color: white;
+  padding: 5px;
+  border-radius: 3px;
+  margin-top: -30px;
+  font-size: 12px;
+}

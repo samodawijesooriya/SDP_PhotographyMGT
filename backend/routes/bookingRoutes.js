@@ -8,10 +8,12 @@ import {
     createBooking,
     getCalendarBookings,
     getBookingsByDate,
-    createPendingBooking
+    createPendingBooking,
+    getBookingDates,
 } from '../controllers/bookingController.js';
 
 import cleanupPencilBookings from '../controllers/cleanup-bookings.js';
+import upload from '../middleware/upload.js';
 
 const bookingRouter = express.Router();
 
@@ -19,7 +21,7 @@ const bookingRouter = express.Router();
 bookingRouter.get('/', getAllBookings);
 
 // create a booking
-bookingRouter.post('/create', createBooking);
+bookingRouter.post('/create', upload.single('bankReceiptImage'), createBooking);
 
 // Delete a booking
 bookingRouter.delete('/:id', deleteBooking);
@@ -34,6 +36,9 @@ bookingRouter.get('/calendar', getCalendarBookings);
 
 // Get booking by date
 bookingRouter.get('/date/:date', getBookingsByDate);
+
+// Get dates of the bookings
+bookingRouter.get('/dates', getBookingDates);
 
 bookingRouter.post('/cleanup', async (req, res) => {
     try {

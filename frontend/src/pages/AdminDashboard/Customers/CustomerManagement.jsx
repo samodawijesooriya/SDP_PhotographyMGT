@@ -41,10 +41,10 @@ const CustomerManagement = () => {
     }, 5000);
   };
 
-  const handleDeleteCustomer = async (userId) => {
+  const handleDeleteCustomer = async (customerId) => {
     if (window.confirm('Are you sure you want to delete this Customer?')) {
       try {
-        await axios.delete(`${url}/api/customer/${userId}`);
+        await axios.delete(`${url}/api/customers/${customerId}`);
         fetchCustomers();
         showSuccessAlert(`Customer deleted successfully!`, "delete");
       } catch (err) {
@@ -62,7 +62,7 @@ const CustomerManagement = () => {
     fetchCustomers();
     setIsEditCustomerFormOpen(false);
     setSelectedCustomer(null);
-    showSuccessAlert(`Customer added successfully!`, "success");
+    showSuccessAlert(`Customer updated successfully!`, "update");
   };
 
   const filteredCustomers = customers.filter(
@@ -93,9 +93,28 @@ const CustomerManagement = () => {
 
   return (
     <div className="customers-page">
+      <div className="page-header">
+        <h1>Customer Management</h1>
+        
+        {/* Inline Alert - Placed near the title */}
+        {successAlert && (
+          <div className={`inline-alert ${alertType}-alert`}>
+            <div className="inline-alert-content">
+              <span className="alert-icon">✓</span>
+              {successAlert}
+              <button 
+                className="close-alert-button"
+                onClick={() => setSuccessAlert(null)}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="top-bar">
         <div className="search-wrapper">
-          
           <input
             type="text"
             placeholder="Search customers..."
@@ -177,21 +196,6 @@ const CustomerManagement = () => {
           </tbody>
         </table>
       </div>
-      {/* Success Alert Toast */}
-      {successAlert && (
-        <div className={`success-alert ${alertType}-alert`}>
-          <div className="success-alert-content">
-            <span className="success-icon">✓</span>
-            {successAlert}
-            <button 
-              className="close-alert-button"
-              onClick={() => setSuccessAlert(null)}
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

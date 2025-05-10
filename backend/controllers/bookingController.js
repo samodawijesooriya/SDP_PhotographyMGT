@@ -1,5 +1,6 @@
 // controllers/packageController.js
 import db from '../config/db.js';
+import fs from 'fs';
 
 
 // Get all bookings with package information
@@ -54,6 +55,7 @@ ORDER BY
   };
 
   // Delete a booking
+// Delete a booking
 const deleteBooking = async (req, res) => {
     try {
       const { id } = req.params;
@@ -71,60 +73,119 @@ const deleteBooking = async (req, res) => {
           return res.status(404).json({ error: 'Booking not found' });
         }
         
-        // Next, delete related payments (due to foreign key constraints)
-        const deletePaymentsQuery = 'DELETE FROM Payment WHERE bookingId = ?';
+        // Get payment information before deletion to access bank deposit info and receipt path
+        const getPaymentQuery = `
+          SELECT p.paymentId, p.bankDepositId, bd.receiptImage
+          FROM Payment p
+          LEFT JOIN bankDeposits bd ON p.bankDepositId = bd.bankDepositId
+          WHERE p.bookingId = ?
+        `;
         
-        db.query(deletePaymentsQuery, [id], (paymentErr) => {
-          if (paymentErr) {
-            console.error('Error deleting related payments:', paymentErr);
-            return res.status(500).json({ error: 'Failed to delete related payments' });
+        db.query(getPaymentQuery, [id], (paymentInfoErr, paymentInfo) => {
+          if (paymentInfoErr) {
+            console.error('Error getting payment information:', paymentInfoErr);
+            return res.status(500).json({ error: 'Failed to get payment information' });
           }
           
-          // Finally, delete the booking
-          const deleteBookingQuery = 'DELETE FROM booking WHERE bookingId = ?';
+          // Store receipt image paths to delete files after DB operations
+          const receiptImagePaths = paymentInfo
+            .filter(item => item.receiptImage)
+            .map(item => item.receiptImage);
           
-          db.query(deleteBookingQuery, [id], (err, results) => {
-            if (err) {
-              console.error('Error deleting booking:', err);
-              return res.status(500).json({ error: 'Failed to delete booking' });
+          // Get bank deposit IDs to delete
+          const bankDepositIds = paymentInfo
+            .filter(item => item.bankDepositId)
+            .map(item => item.bankDepositId);
+          
+          // Delete payments first (due to foreign key constraints)
+          const deletePaymentsQuery = 'DELETE FROM Payment WHERE bookingId = ?';
+          
+          db.query(deletePaymentsQuery, [id], (paymentErr) => {
+            if (paymentErr) {
+              console.error('Error deleting related payments:', paymentErr);
+              return res.status(500).json({ error: 'Failed to delete related payments' });
             }
             
-            if (results.affectedRows === 0) {
-              return res.status(404).json({ error: 'Booking not found or already deleted' });
+            // Delete bank deposits if any exist
+            if (bankDepositIds.length > 0) {
+              const deleteBankDepositsQuery = 'DELETE FROM bankDeposits WHERE bankDepositId IN (?)';
+              
+              db.query(deleteBankDepositsQuery, [bankDepositIds], (bankDepositErr) => {
+                if (bankDepositErr) {
+                  console.error('Error deleting bank deposits:', bankDepositErr);
+                  return res.status(500).json({ error: 'Failed to delete bank deposits' });
+                }
+                
+                // Delete the booking
+                deleteBookingAndFiles();
+              });
+            } else {
+              // If no bank deposits, proceed to delete the booking
+              deleteBookingAndFiles();
             }
-
-            const getCustomerQuery = 'SELECT customerId FROM booking WHERE bookingId = ?';
-
-            db.query(getCustomerQuery, [id], (customerErr, customerResults) => {
-              if (customerErr) {
-                console.error('Error fetching customer ID:', customerErr);
-                return res.status(500).json({ error: 'Failed to fetch customer ID' });
+          });
+          
+          // Function to delete the booking and associated files
+          const deleteBookingAndFiles = () => {
+            const deleteBookingQuery = 'DELETE FROM booking WHERE bookingId = ?';
+            
+            db.query(deleteBookingQuery, [id], (err, results) => {
+              if (err) {
+                console.error('Error deleting booking:', err);
+                return res.status(500).json({ error: 'Failed to delete booking' });
               }
               
-              const customerId = customerResults[0]?.customerId;
+              if (results.affectedRows === 0) {
+                return res.status(404).json({ error: 'Booking not found or already deleted' });
+              }
               
-              // Delete related customer if no other bookings exist
-              const deleteCustomerQuery = 'DELETE FROM Customers WHERE customerId = ? AND NOT EXISTS (SELECT 1 FROM booking WHERE customerId = ?)';
-              
-              db.query(deleteCustomerQuery, [customerId, customerId], (deleteErr) => {
-                if (deleteErr) {
-                  console.error('Error deleting related customer:', deleteErr);
-                  return res.status(500).json({ error: 'Failed to delete related customer' });
+              // Delete receipt image files from the filesystem
+              receiptImagePaths.forEach(imagePath => {
+                if (imagePath) {
+                  try {
+                    fs.unlinkSync(imagePath);
+                    console.log(`Successfully deleted file: ${imagePath}`);
+                  } catch (fileErr) {
+                    console.error(`Error deleting file ${imagePath}:`, fileErr);
+                    // Continue with the response even if file deletion fails
+                  }
                 }
-                res.json({ 
-                  message: 'Booking deleted successfully',
-                  deletedId: id
+              });
+              
+              // Check if we need to delete the customer as well
+              const getCustomerQuery = 'SELECT customerId FROM booking WHERE bookingId = ?';
+              
+              db.query(getCustomerQuery, [id], (customerErr, customerResults) => {
+                if (customerErr) {
+                  console.error('Error fetching customer ID:', customerErr);
+                  return res.status(500).json({ error: 'Failed to fetch customer ID' });
+                }
+                
+                const customerId = customerResults[0]?.customerId;
+                
+                // Delete related customer if no other bookings exist
+                const deleteCustomerQuery = 'DELETE FROM Customers WHERE customerId = ? AND NOT EXISTS (SELECT 1 FROM booking WHERE customerId = ?)';
+                
+                db.query(deleteCustomerQuery, [customerId, customerId], (deleteErr) => {
+                  if (deleteErr) {
+                    console.error('Error deleting related customer:', deleteErr);
+                    return res.status(500).json({ error: 'Failed to delete related customer' });
+                  }
+                  res.json({ 
+                    message: 'Booking deleted successfully',
+                    deletedId: id
+                  });
                 });
               });
             });
-          });
+          };
         });
       });
     } catch (error) {
       console.error('Error in deleteBooking:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
-  };
+};
 
 // Update a booking
 const updateBooking = async (req, res) => {
@@ -254,6 +315,15 @@ const createPendingBooking = async (req, res) => {
 
 // Create a new booking
   const createBooking = async (req, res) => {
+
+    let totalAmount = req.body.totalAmount;
+
+    if (Array.isArray(totalAmount)) {
+      // Filter out empty strings and take the first valid value
+      const validAmounts = totalAmount.filter(amount => amount !== '');
+      totalAmount = validAmounts.length > 0 ? validAmounts[0] : '0';
+    }
+
     const {
       fullName,
       email,
@@ -263,7 +333,6 @@ const createPendingBooking = async (req, res) => {
       eventTime,
       venue,
       packageId,
-      totalAmount,
       bookingStatus,
       paymentMethod,
       cardNumber,
@@ -271,11 +340,16 @@ const createPendingBooking = async (req, res) => {
       expiryDate,
       cvv,
       bankReceiptRef,
-      bankReceiptImage,
       notes
     } = req.body;
-  
+
+    let bankReceiptImage = null;
+    if (req.file) {
+      bankReceiptImage = req.file.path; // Path to the uploaded image
+    }
+
     try {
+      console.log('Received booking data:', req.body);
       // Validate required fields
       if (!fullName || !email || !billingMobile || !eventDate || !packageId || !totalAmount || !paymentMethod) {
         return res.status(400).json({ 
@@ -308,7 +382,7 @@ const createPendingBooking = async (req, res) => {
       }
   
       // Validate payment method and associated fields
-      if (paymentMethod === 'CREDIT_CARD') {
+      if (paymentMethod === 'creditCard') {
         if (!cardNumber || !cardholderName || !expiryDate || !cvv) {
           return res.status(400).json({ 
             error: 'Credit card details are required for credit card payments',
@@ -330,12 +404,16 @@ const createPendingBooking = async (req, res) => {
         if (!/^\d{3,4}$/.test(cvv)) {
           return res.status(400).json({ error: 'Invalid CVV format' });
         }
-      } else if (paymentMethod === 'BANK_DEPOSIT') {
-        if (!bankReceiptRef || !bankReceiptImage) {
+      } else if (paymentMethod === 'bankTransfer') {
+        if (!bankReceiptRef) {
           return res.status(400).json({ 
-            error: 'Bank deposit details are required for bank deposit payments',
-            requiredFields: ['bankReceiptRef', 'bankReceiptImage']
+            error: 'Bank transfer reference number is required',
+            requiredFields: ['bankReceiptRef']
           });
+        }
+        // Make receipt image optional or provide more helpful error
+        if (!bankReceiptImage) {
+          console.warn('No receipt image uploaded for bank transfer');
         }
       }
   
@@ -370,7 +448,7 @@ const createPendingBooking = async (req, res) => {
       }
   
       // Check if the credit card details are provided
-      if (paymentMethod === 'CREDIT_CARD' && cardNumber && cardholderName && expiryDate && cvv) {
+      if (paymentMethod === 'creditCard' && cardNumber && cardholderName && expiryDate && cvv) {
         const lastCreditCardQuery = 'SELECT creditCardId FROM creditCard ORDER BY creditCardId DESC LIMIT 1';
         const lastCreditCard = await queryDatabase(lastCreditCardQuery);
         newCreditCardId = lastCreditCard.length > 0 ? lastCreditCard[0].creditCardId + 1 : 1;
@@ -384,19 +462,24 @@ const createPendingBooking = async (req, res) => {
       }
     
       // Check if the bank deposit details are provided
-      if (paymentMethod === 'BANK_DEPOSIT' && bankReceiptRef && bankReceiptImage) {
+      if (paymentMethod === 'bankTransfer' && bankReceiptRef) {
         const lastDepositQuery = 'SELECT bankDepositId FROM bankdeposits ORDER BY bankDepositId DESC LIMIT 1';
         const lastDeposit = await queryDatabase(lastDepositQuery);
         newDepositId = lastDeposit.length > 0 ? lastDeposit[0].bankDepositId + 1 : 1;
         
         const depositQuery = 'INSERT INTO bankDeposits (bankDepositId, referenceNo, depositAmount, receiptImage) VALUES (?, ?, ?, ?)';
-        const depositResult = await queryDatabase(depositQuery, [newDepositId, bankReceiptRef, totalAmount, bankReceiptImage]);
+        const depositResult = await queryDatabase(depositQuery, [
+          newDepositId, 
+          bankReceiptRef, 
+          totalAmount, 
+          bankReceiptImage // This now contains the path to the uploaded file
+        ]);
         
         if (!depositResult || !depositResult.affectedRows) {
           throw new Error('Failed to insert bank deposit');
         }
       }
-  
+
       // Insert new booking
       const lastBookingQuery = 'SELECT bookingId FROM booking ORDER BY bookingId DESC LIMIT 1';
       const lastBooking = await queryDatabase(lastBookingQuery);
@@ -413,7 +496,7 @@ const createPendingBooking = async (req, res) => {
       const lastPaymentQuery = 'SELECT paymentId FROM payment ORDER BY paymentId DESC LIMIT 1';
       const lastPayment = await queryDatabase(lastPaymentQuery);
       const newPaymentId = lastPayment.length > 0 ? lastPayment[0].paymentId + 1 : 1;
-      
+      console.log('bankDepositId:', newDepositId);
       const paymentQuery = `INSERT INTO payment (paymentId, bookingId, paymentAmount, paymentDate, paymentMethod, bankDepositId, creditCardId, paymentStatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
       const paymentResult = await queryDatabase(paymentQuery, [
         newPaymentId, 
@@ -421,8 +504,8 @@ const createPendingBooking = async (req, res) => {
         totalAmount, 
         new Date(), 
         paymentMethod, 
-        paymentMethod === 'BANK_DEPOSIT' ? newDepositId : null, 
-        paymentMethod === 'CREDIT_CARD' ? newCreditCardId : null, 
+        paymentMethod === 'bankTransfer' ? newDepositId : null, 
+        paymentMethod === 'creditCard' ? newCreditCardId : null, 
         bookingStatus
       ]);
       
@@ -607,6 +690,29 @@ const getBookingsByDate = async (req, res) => {
   }
 };
 
+const getBookingDates = async (req, res) => { 
+  try{
+    const query = `
+      SELECT bookingId, eventDate, eventTime 
+      FROM booking 
+      WHERE bookingStatus IN ('Pending', 'Confirmed') 
+      AND eventDate IS NOT NULL 
+      AND eventDate != ''
+    `;
+    
+    db.query(query, (err, results) => {
+      if (err) {
+        console.error('Error fetching booking dates:', err);
+        return res.status(500).json({ error: 'Failed to fetch booking dates' });
+      }
+      res.json(results);
+    });
+
+  }catch(error){
+    console.error('Error in getBookingDates:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
 
   export {
     getAllBookings,
@@ -615,5 +721,6 @@ const getBookingsByDate = async (req, res) => {
     createBooking,
     getCalendarBookings,
     getBookingsByDate,
-    createPendingBooking
+    createPendingBooking,
+    getBookingDates
   };

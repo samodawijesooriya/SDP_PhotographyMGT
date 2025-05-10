@@ -18,5 +18,8 @@ cannot put same date for different users
 
 Needed to check the bank deposit details when submiting
 
+email should be unique for every user(needed to check that in the booking)
+
+in the booking it should show default(email)
 
 more notes here....

@@ -21,6 +21,7 @@ const port = process.env.PORT;
 // middleware
 app.use(express.json());
 app.use(cors());    // access backend from frontend
+app.use('/uploads', express.static('uploads')); // Serve uploaded files
 
 // api end ponits
 app.use('/api/user', userRouter);
