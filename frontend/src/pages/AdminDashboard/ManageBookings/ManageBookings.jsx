@@ -16,6 +16,8 @@ const ManageBookings = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isAddBookingModalOpen, setIsAddBookingModalOpen] = useState(false);
     const [packages, setPackages] = useState([]);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [bookingToDelete, setBookingToDelete] = useState(null);
     const [activeTab, setActiveTab] = useState('all'); // Added for tab functionality
     
     const [editFormData, setEditFormData] = useState({
@@ -82,40 +84,10 @@ const ManageBookings = () => {
         // Auto-hide the alert after 5 seconds
         setTimeout(() => {
             setSuccessAlert(null);
-        }, 5000);
-    };
+        }, 10000);
+    };   // Handle form input changes
 
-   // Handle Edit Booking
-   const handleEditBooking = (booking, e) => {
-    e.stopPropagation();
-    
-    // Format date for the input field (YYYY-MM-DD)
-    const formattedDate = booking.eventDate ? 
-        new Date(booking.eventDate).toISOString().split('T')[0] : '';
-    
-    // Set the form data with the booking information
-    setEditFormData({
-        fullName: booking.fullName || '',
-        email: booking.email || '',
-        billingMobile: booking.billingMobile || '',
-        billingAddress: booking.billingAddress || '',
-        eventDate: formattedDate,
-        eventTime: booking.eventTime || '',
-        venue: booking.venue || '',
-        totalAmount: booking.totalAmount || 0,
-        paidAmount: booking.paidAmount || 0,
-        bookingStatus: booking.bookingStatus || 'pending',
-        bookingType: booking.bookingType || 'pencil',
-        notes: booking.notes || '',
-        packageId: booking.packageId || ''
-    });
-    
-    setSelectedBooking(booking);
-    setIsEditModalOpen(true);
-    };
-
-    // Handle form input changes
-    const handleEditFormChange = (e) => {
+   const handleEditFormChange = (e) => {
         const { name, value } = e.target;
         
         // If the package dropdown changes, update the total amount based on package price
@@ -138,9 +110,37 @@ const ManageBookings = () => {
           ...prev,
           [name]: value
         }));
-      };
+   };   // Handle Edit Booking
 
-    const handleEditSubmit = async (e) => {
+   const handleEditBooking = (booking, e) => {
+    e.stopPropagation();
+    
+    // Format date for the input field (YYYY-MM-DD)
+    const formattedDate = booking.eventDate ? 
+        new Date(booking.eventDate).toISOString().split('T')[0] : '';
+    
+    // Set the form data with the booking information
+    setEditFormData({
+        fullName: booking.fullName || '',
+        email: booking.email || '',
+        billingMobile: booking.billingMobile || '',
+        billingAddress: booking.billingAddress || '',
+        eventDate: formattedDate,
+        eventTime: booking.eventTime || '',
+        venue: booking.venue || '',
+        totalAmount: booking.totalAmount || 0,
+        paidAmount: booking.paidAmount || 0,
+        bookingStatus: booking.bookingStatus || 'Pending',
+        bookingType: booking.bookingType || 'Pencil',
+        notes: booking.notes || '',
+        packageId: booking.packageId || ''
+    });
+    
+    setSelectedBooking(booking);
+    setIsEditModalOpen(true);
+   };
+
+   const handleEditSubmit = async (e) => {
         e.preventDefault();
         
         try {
@@ -176,25 +176,28 @@ const ManageBookings = () => {
         }
     };
 
-    const handleDeleteBooking = async (bookingId, fullName, e) => {
-        e.stopPropagation();
+    const openDeleteModal = (booking) => {
+        setBookingToDelete(booking);
+        setDeleteModalOpen(true);
+    };
 
-        // Ask for confirmation before deleting
-        if (window.confirm(`Are you sure you want to delete the booking for "${fullName}"?`)) {
-            try {
-                await axios.delete(`${url}/api/bookings/${bookingId}`);
-                
-                // Show success message
-                showSuccessAlert(`Booking for "${fullName}" deleted successfully!`, 'delete');
-                
-                // Refresh bookings list
-                fetchBookings();
-            } catch (error) {
-                console.error('Error deleting booking:', error);
-                setError('Failed to delete booking. Please try again.');
-            }
+    const closeDeleteModal = () => {
+        setBookingToDelete(null);
+        setDeleteModalOpen(false);
+    };
+
+    const confirmDelete = async () => {
+        try {
+            await axios.delete(`${url}/api/bookings/${bookingToDelete.bookingId}`);
+            showSuccessAlert(`Booking "${bookingToDelete.fullName}" deleted successfully!`, 'delete');
+            fetchBookings();
+            closeDeleteModal();
+        } catch (error) {
+            console.error('Error deleting booking:', error);
+            setError('Failed to delete booking. Please try again.');
+            closeDeleteModal();
         }
-    }
+    };
 
     const handleViewBooking = (booking) => {
         setSelectedBooking(booking);
@@ -231,20 +234,18 @@ const ManageBookings = () => {
             currency: 'LKR',
             minimumFractionDigits: 2
         }).format(amount);
-    };
-
-    // Get status badge class
+    };    // Get status badge class
     const getStatusBadgeClass = (status) => {
         switch (status) {
-            case 'pencil':
+            case 'Pencil':
                 return 'status-pencil';
-            case 'pending':
+            case 'Pending':
                 return 'status-pending';
-            case 'confirmed':
+            case 'Confirmed':
                 return 'status-confirmed';
-            case 'completed':
+            case 'Completed':
                 return 'status-completed';
-            case 'cancelled':
+            case 'Cancelled':
                 return 'status-cancelled';
             default:
                 return '';
@@ -349,7 +350,7 @@ const ManageBookings = () => {
             >
             Clean Up Old Pencil Bookings
             </button>
-        <div className="search-container">
+        <div className="search-container1">
             <input
                 type="text"
                 placeholder="Search bookings by name, email, venue or status..."
@@ -458,7 +459,7 @@ const ManageBookings = () => {
                             {booking.bookingStatus || "Unknown"}
                         </span>
                         </td>
-                        <td className="actions-cell">
+                        <td className="actions-cell">                        
                         <button 
                             className="view-btn"
                             onClick={() => handleViewBooking(booking)}
@@ -467,8 +468,15 @@ const ManageBookings = () => {
                             <Eye size={16} />
                         </button>
                         <button 
+                            className="edit-btn"
+                            onClick={(e) => handleEditBooking(booking, e)}
+                            aria-label="Edit booking"
+                        >
+                            <Edit size={16} />
+                        </button>
+                        <button 
                             className="delete-btn"
-                            onClick={(e) => handleDeleteBooking(booking.bookingId, booking.fullName, e)}
+                            onClick={() => openDeleteModal(booking)}
                             aria-label="Delete booking"
                         >
                             <Trash2 size={16} />
@@ -526,7 +534,6 @@ const ManageBookings = () => {
                             <h3><CreditCard size={16} /> Payment Details</h3>
                             <p><strong>Total Amount:</strong> {formatCurrency(selectedBooking.investedAmount)}</p>
                             <p><strong>Balance:</strong> {formatCurrency(selectedBooking.balanceAmount)}</p>
-                            <p><strong>Booking Type:</strong> {selectedBooking.bookingType || "Not specified"}</p>
                             <p><strong>Booking Status:</strong> 
                                 <span className={`status-badge ${getStatusBadgeClass(selectedBooking.bookingStatus)}`}>
                                     {selectedBooking.bookingStatus || "Unknown"}
@@ -685,8 +692,8 @@ const ManageBookings = () => {
                                         type="number" 
                                         id="totalAmount" 
                                         name="totalAmount"
-                                        value={editFormData.totalAmount}
-                                        onChange={handleEditFormChange}
+                                        value={selectedBooking.investedAmount}
+                                        disabled
                                         min="0"
                                         step="0.01"
                                         required
@@ -713,26 +720,11 @@ const ManageBookings = () => {
                                         value={editFormData.bookingStatus}
                                         onChange={handleEditFormChange}
                                         required
-                                    >
-                                        <option value="pencil">Pencil</option>
-                                        <option value="pending">Pending</option>
-                                        <option value="confirmed">Confirmed</option>
-                                        <option value="completed">Completed</option>
-                                        <option value="cancelled">Cancelled</option>
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label htmlFor="bookingType">Booking Type</label>
-                                    <select 
-                                        id="bookingType" 
-                                        name="bookingType"
-                                        value={editFormData.bookingType}
-                                        onChange={handleEditFormChange}
-                                        required
-                                    >
-                                        <option value="pencil">Pencil</option>
-                                        <option value="advance">Advance</option>
-                                        <option value="full">Full</option>
+                                    >                                        <option value="Pencil">Pencil</option>
+                                        <option value="Pending">Pending</option>
+                                        <option value="Confirmed">Confirmed</option>
+                                        <option value="Completed">Completed</option>
+                                        <option value="Cancelled">Cancelled</option>
                                     </select>
                                 </div>
                             </div>
@@ -788,7 +780,38 @@ const ManageBookings = () => {
                     </div>
                 </div>
             )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteModalOpen && bookingToDelete && (
+                <div className="delete-modal-overlay">
+                    <div className="delete-modal">
+                        <div className="delete-modal-header">
+                            <h3>Confirm Deletion</h3>
+                        </div>
+                        <div className="delete-modal-content">
+                            <p>Are you sure you want to delete this booking</p>
+                            <p>This action cannot be undone.</p>
+                        </div>
+                        <div className="delete-modal-actions">
+                            <button
+                                className="cancel-delete-btn"
+                                onClick={closeDeleteModal}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="confirm-delete-btn"
+                                onClick={confirmDelete}
+                            >
+                                Delete Booking
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
+
+
     );
 };
 

@@ -239,19 +239,6 @@ const ManagePackages = () => {
         setIsEditMode(true);
     };
 
-    const handleDeletePackage = async (packageId, packageName) => {
-        if (window.confirm(`Are you sure you want to delete the package "${packageName}"?`)) {
-            try {
-                await axios.delete(`${url}/api/packages/${packageId}`);
-                showSuccessAlert(`Package "${packageName}" deleted successfully!`, 'delete');
-                fetchPackages();
-            } catch (error) {
-                console.error('Error deleting package:', error);
-                setError('Failed to delete package. Please try again.');
-            }
-        }
-    };
-
     const openDeleteModal = (pkg) => {
         setPackageToDelete(pkg);
         setDeleteModalOpen(true);

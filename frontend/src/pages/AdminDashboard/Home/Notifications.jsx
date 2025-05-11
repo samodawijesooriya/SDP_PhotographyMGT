@@ -1,52 +1,84 @@
-import React, { useState } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { FaBell, FaTimes } from 'react-icons/fa';
 import './Notifications.css';
+import { StoreContext } from '../../../context/StoreContext';
+import axios from 'axios';
 
 const Notifications = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: 'booking',
-      message: 'New booking request from Michael Brown',
-      time: '10 minutes ago',
-      isRead: false
-    },
-    {
-      id: 2,
-      type: 'payment',
-      message: 'Payment confirmed for Family Portrait Package',
-      time: '2 hours ago',
-      isRead: false
-    },
-    {
-      id: 3,
-      type: 'system',
-      message: 'System update scheduled for tonight at 2 AM',
-      time: '5 hours ago',
-      isRead: true
-    },
-    {
-      id: 4,
-      type: 'customer',
-      message: 'New customer registration: Jennifer Williams',
-      time: 'Yesterday',
-      isRead: true
+  const [notifications, setNotifications] = useState([]);
+  const { url } = useContext(StoreContext);  
+  
+  
+  const fetchNewBookings = async () => {  
+    try {
+      const response = await axios.get(`${url}/api/home/new-bookings`);
+
+      // Get previously read notifications from localStorage
+      const readNotifications = JSON.parse(localStorage.getItem('readNotifications') || '{}');
+      
+      // Transform API data to match component expectations
+      const formattedNotifications = response.data.map(booking => {
+        // Format the createdAt timestamp to be more readable
+        const createdDate = new Date(booking.createdAt);
+        const formattedTime = createdDate.toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        return {
+          bookingId: booking.bookingId,
+          isRead: readNotifications[booking.bookingId] === true, 
+          type: 'booking', // Default type for bookings
+          message: `New booking from ${booking.fullName} for ${booking.eventName || 'an event'} on ${booking.eventDate}`,
+          time: formattedTime, // Using formatted createdAt time
+          ...booking 
+        };
+      });
+      
+      setNotifications(formattedNotifications);
+      console.log("New bookings:", formattedNotifications);
     }
-  ]);
+    catch (error) {
+      console.error("Error fetching new bookings:", error);
+      // You should also consider showing an error message to the user
+    }
+  };
 
   const toggleNotifications = () => {
     setIsOpen(!isOpen);
   };
 
-  const markAsRead = (id) => {
+  const markAsRead = (bookingId) => {
+    // Update state
     setNotifications(
       notifications.map(notification => 
-        notification.id === id 
+        notification.bookingId === bookingId 
           ? { ...notification, isRead: true } 
           : notification
       )
     );
+    
+    // Update localStorage
+    const readNotifications = JSON.parse(localStorage.getItem('readNotifications') || '{}');
+    readNotifications[bookingId] = false;
+    localStorage.setItem('readNotifications', JSON.stringify(readNotifications));
+  };
+
+  const markAllAsRead = () => {
+    // Update all notifications as read
+    setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+    
+    // Update localStorage for all notifications
+    const readNotifications = JSON.parse(localStorage.getItem('readNotifications') || '{}');
+    notifications.forEach(notification => {
+      readNotifications[notification.bookingId] = true;
+    });
+    localStorage.setItem('readNotifications', JSON.stringify(readNotifications));
   };
 
   const getTypeIcon = (type) => {
@@ -63,6 +95,12 @@ const Notifications = () => {
         return '📣';
     }
   };
+
+  useEffect(() => {
+    fetchNewBookings();
+    const intervalId = setInterval(fetchNewBookings, 60000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -86,9 +124,9 @@ const Notifications = () => {
             {notifications.length > 0 ? (
               notifications.map(notification => (
                 <div 
-                  key={notification.id} 
+                  key={notification.bookingId} 
                   className={`notification-item ${!notification.isRead ? 'unread' : ''}`}
-                  onClick={() => markAsRead(notification.id)}
+                  onClick={() => markAsRead(notification.bookingId)}
                 >
                   <div className="notification-icon">
                     {getTypeIcon(notification.type)}
@@ -108,7 +146,7 @@ const Notifications = () => {
             <div className="notifications-footer">
               <button 
                 className="mark-all-read"
-                onClick={() => setNotifications(notifications.map(n => ({ ...n, isRead: true })))}
+                onClick={markAllAsRead}
               >
                 Mark all as read
               </button>

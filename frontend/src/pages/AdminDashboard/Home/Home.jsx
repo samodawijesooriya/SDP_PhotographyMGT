@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { use, useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   FaCalendarAlt, FaUsers, FaBoxOpen, FaCreditCard, FaMoneyBillWave, 
@@ -7,14 +7,56 @@ import {
 } from 'react-icons/fa';
 import './Home.css';
 import { assets } from '../../../assets/assets';
-import EventCalendar from '../EventCalendar/EventCalendar';
 import Notifications from './Notifications';
+import { StoreContext } from '../../../context/StoreContext';
+import axios from 'axios';
 
 const AdminHome = () => {
+  const { url } = useContext(StoreContext);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [bookingStats, setBookingStats] = useState([]);
+  const [sumaryStats, setSummaryStats] = useState([]);
+  const [upcomingBookings, setUpcomingBookings] = useState([]);
   const navigate = useNavigate();
   
+  const fetchBookingStats = async () => {
+    try {
+      const response = await axios.get(`${url}/api/home/booking-stats`);
+      if (response.status !== 200) {
+        throw new Error('Failed to fetch booking statistics');
+      }
+      setBookingStats(response.data);
+    } catch (error) {
+      console.error('Error fetching booking statistics:', error);
+    }
+  }
+
+  const fetchUpcomingBookings = async () => {
+    try {
+      const response = await axios.get(`${url}/api/home/upcoming-bookings`);
+      if (response.status !== 200) {
+        throw new Error('Failed to fetch upcoming bookings');
+      }
+      setUpcomingBookings(response.data);
+      console.log("Upcoming bookings:", response.data);
+    } catch (error) {
+      console.error('Error fetching upcoming bookings:', error);
+    }
+  }
+
+  const fetchSummaryStats= async () => {
+    try {
+      const response = await axios.get(`${url}/api/home/sumary-stats`);
+      if (response.status !== 200) {
+        throw new Error('Failed to fetch customer count');
+      }
+      console.log("Customer count:", response.data);
+      setSummaryStats(response.data);
+    } catch (error) {
+      console.error('Error fetching customer count:', error);
+    }
+  }
 
   // get the username from local storage
     const userData = JSON.parse(localStorage.getItem('userData'));
@@ -25,7 +67,7 @@ const AdminHome = () => {
       id: 1,
       title: 'Bookings',
       icon: <FaCalendarAlt className="dashboard-icon" />,
-      count: 12,
+      count: bookingStats.totalCount || 0,
       description: 'Active sessions',
       color: '#4361ee'
     },
@@ -33,7 +75,7 @@ const AdminHome = () => {
       id: 2,
       title: 'Customers',
       icon: <FaUsers className="dashboard-icon" />,
-      count: 247,
+      count: sumaryStats.customerCount || 0,
       description: 'Total clients',
       color: '#3a0ca3'
     },
@@ -41,7 +83,7 @@ const AdminHome = () => {
       id: 3,
       title: 'Packages',
       icon: <FaBoxOpen className="dashboard-icon" />,
-      count: 8,
+      count: sumaryStats.packageCount || 0,
       description: 'Available packages',
       color: '#7209b7'
     },
@@ -49,29 +91,12 @@ const AdminHome = () => {
       id: 4,
       title: 'Revenue',
       icon: <FaCreditCard className="dashboard-icon" />,
-      count: '$8,320',
+      count: sumaryStats.totalRevenue || 0,
       description: 'This month',
       color: '#f72585'
     }
   ];
   
-  const mainMenuItems = [
-    { id: 1, title: 'Bookings', icon: <FaCalendarAlt />, path: '/admin/bookings' },
-    { id: 2, title: 'Customers', icon: <FaUsers />, path: '/admin/customers' },
-    { id: 3, title: 'Packages', icon: <FaBoxOpen />, path: '/admin/packages' },
-    { id: 4, title: 'Payments', icon: <FaCreditCard />, path: '/admin/payments' },
-    { id: 5, title: 'Gallery', icon: <FaImage />, path: '/admin/gallery' },
-    { id: 6, title: 'Reports', icon: <FaChartBar />, path: '/admin/reports' },
-    { id: 7, title: 'Messages', icon: <FaEnvelope />, path: '/admin/messages' },
-    { id: 8, title: 'Settings', icon: <FaCog />, path: '/admin/settings' }
-  ];
-
-  const upcomingSessions = [
-    { id: 1, client: 'Sarah Johnson', type: 'Wedding Session', date: 'May 12, 2025', time: '10:00 AM', status: 'Confirmed' },
-    { id: 2, client: 'Michael Reeves', type: 'Family Portraits', date: 'May 14, 2025', time: '2:30 PM', status: 'Pending' },
-    { id: 3, client: 'Emily Parker', type: 'Corporate Event', date: 'May 16, 2025', time: '9:00 AM', status: 'Confirmed' }
-  ];
-
   const recentUploads = [
     { id: 1, title: 'Wedding Collection', client: 'Thomas & Rebecca', count: 124, preview: 'https://via.placeholder.com/100x75' },
     { id: 2, title: 'Corporate Event', client: 'Tech Summit 2025', count: 87, preview: 'https://via.placeholder.com/100x75' },
@@ -81,6 +106,12 @@ const AdminHome = () => {
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
+
+  useEffect(() => {
+    fetchBookingStats();
+    fetchUpcomingBookings();
+    fetchSummaryStats();
+  }, []);
 
   return (
     <div className="photo-admin-layout">
@@ -92,15 +123,6 @@ const AdminHome = () => {
             <button className="mobile-toggle" onClick={toggleSidebar}>
               <FaBars />
             </button>
-            <div className="search-container">
-              <FaSearch className="search-icon" />
-              <input 
-                type="text" 
-                placeholder="Search..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
           </div>
           <div className="header-right">
             <div className="notification-bell">
@@ -112,7 +134,6 @@ const AdminHome = () => {
           </div>
         </header>
 
-        {/* Dashboard Content */}
         <div className="photo-dashboard-container">
           <div className="welcome-section">
             <div className="welcome-text">
@@ -120,11 +141,11 @@ const AdminHome = () => {
               <p>Here's what's happening with your business today</p>
             </div>
             <div className="date-display">
-              <p>Saturday, May 10, 2025</p>
+              <p>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
             </div>
           </div>
-          
-          {/* Dashboard Stats */}
+            
+            {/* Dashboard Stats */}
           <div className="stats-grid">
             {dashboardItems.map(item => (
               <div key={item.id} className="stat-card" style={{background: `linear-gradient(135deg, ${item.color} 0%, ${item.color}dd 100%)`}}>
@@ -147,68 +168,24 @@ const AdminHome = () => {
                 <h2>Upcoming Sessions</h2>
               </div>
               <div className="session-list">
-                {upcomingSessions.map(session => (
-                  <div key={session.id} className="session-item">
+                {upcomingBookings.map(booking => (
+                  <div key={booking.bookingId} className="session-item">
                     <div className="session-info">
-                      <h4>{session.client}</h4>
-                      <p className="session-type">{session.type}</p>
+                      <h4>{booking.fullName}</h4>
+                      <p className="session-type">{booking.eventName} - {booking.packageName}</p>
                       <div className="session-time">
                         <FaCalendarAlt /> 
-                        <span>{session.date} at {session.time}</span>
+                        <span>{new Date(booking.eventDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {booking.eventTime.substring(0, 5)}</span>
                       </div>
                     </div>
-                    <div className={`session-status ${session.status.toLowerCase()}`}>
-                      {session.status}
+                    <div className={`session-status ${booking.bookingStatus.toLowerCase()}`}>
+                      {booking.bookingStatus}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
             
-            {/* Recent Activity */}
-            <div className="photo-card recent-activity">
-              <div className="card-header">
-                <h2>Recent Activity</h2>
-              </div>
-              <div className="activity-list">
-                <div className="activity-item">
-                  <div className="activity-icon booking">
-                    <FaCalendarAlt />
-                  </div>
-                  <div className="activity-content">
-                    <p>New booking from <strong>Sarah Johnson</strong></p>
-                    <span className="activity-time">Today, 10:30 AM</span>
-                  </div>
-                </div>
-                <div className="activity-item">
-                  <div className="activity-icon payment">
-                    <FaCreditCard />
-                  </div>
-                  <div className="activity-content">
-                    <p>Payment received for <strong>Wedding Package</strong></p>
-                    <span className="activity-time">Yesterday, 3:45 PM</span>
-                  </div>
-                </div>
-                <div className="activity-item">
-                  <div className="activity-icon client">
-                    <FaUser />
-                  </div>
-                  <div className="activity-content">
-                    <p><strong>David Miller</strong> requested a quote</p>
-                    <span className="activity-time">Yesterday, 11:20 AM</span>
-                  </div>
-                </div>
-                <div className="activity-item">
-                  <div className="activity-icon booking">
-                    <FaCalendarAlt />
-                  </div>
-                  <div className="activity-content">
-                    <p>Booking rescheduled for <strong>Corporate Event</strong></p>
-                    <span className="activity-time">May 8, 2025</span>
-                  </div>
-                </div>
-              </div>
-            </div>
             
             {/* Recent Uploads */}
             <div className="photo-card recent-uploads">
@@ -237,34 +214,21 @@ const AdminHome = () => {
             <div className="photo-card quick-actions">
               <div className="card-header">
                 <h2>Quick Actions</h2>
-              </div>              <div className="actions-grid">
-                <button className="action-button" onClick={() => {
-                  // Navigate to parent AdminDashboard and set active section to bookings
-                  if (window.parent && window.parent.document) {
-                    // For iframe scenarios
-                    window.parent.postMessage({ action: 'setActiveSection', section: 'bookings' }, '*');
-                  } else {
-                    // Direct navigation to AdminDashboard with bookings section
-                    navigate('/admin-dashboard', { state: { activeSection: 'bookings' } });
-                  }
-                }}>
+              </div>
+              <div className="actions-grid">
+                <button className="action-button">
                   <FaCalendarAlt />
                   <span>Add New Booking</span>
-                </button>                <button className="action-button" onClick={() => {
-                  navigate('/admin-dashboard', { state: { activeSection: 'users' } });
-                }}>
+                </button>
+                <button className="action-button">
                   <FaUsers />
                   <span>Add Client</span>
                 </button>
-                <button className="action-button" onClick={() => {
-                  navigate('/admin-dashboard', { state: { activeSection: 'gallery' } });
-                }}>
+                <button className="action-button">
                   <FaImage />
                   <span>Upload Photos</span>
                 </button>
-                <button className="action-button" onClick={() => {
-                  navigate('/admin-dashboard', { state: { activeSection: 'payments' } });
-                }}>
+                <button className="action-button">
                   <FaCreditCard />
                   <span>Record Payment</span>
                 </button>

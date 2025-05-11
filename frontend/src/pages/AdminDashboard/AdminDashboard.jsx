@@ -19,6 +19,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 
+
   useEffect(() => {
     const storedUserData = JSON.parse(localStorage.getItem('userData'));
     setUserData(storedUserData);
@@ -45,6 +46,10 @@ const AdminDashboard = () => {
       window.removeEventListener('message', handleMessage);
     };
   }, [location]);
+
+  useEffect(() => {
+  window.scrollTo(0, 0);
+  }, [activeSection]);
 
   const checkTodayEvents = async () => {
     try {

@@ -33,7 +33,7 @@ LEFT JOIN (
     FROM 
         Payment
     WHERE 
-        paymentStatus = 'Completed'
+        paymentStatus = 'Completed' OR paymentStatus = 'Pending'
     GROUP BY 
         bookingId
 ) pay_sum ON pay_sum.bookingId = b.bookingId
@@ -189,7 +189,142 @@ const deleteBooking = async (req, res) => {
 
 // Update a booking
 const updateBooking = async (req, res) => {
- 
+  try {
+    const { id } = req.params;
+    const {
+      fullName,
+      email,
+      billingMobile,
+      billingAddress,
+      eventDate,
+      eventTime,
+      venue,
+      packageId,
+      bookingStatus,
+      notes,
+      paidAmount,
+    } = req.body;
+
+    // Validate required fields
+    if (!fullName || !email || !billingMobile || !eventDate || !packageId) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        requiredFields: ['fullName', 'email', 'billingMobile', 'eventDate', 'packageId']
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Validate mobile number format (10-digit)
+    const mobileRegex = /^\d{10}$/;
+    if (!mobileRegex.test(billingMobile)) {
+      return res.status(400).json({ error: 'Invalid mobile number format' });
+    }
+
+    // validate the paid amount
+    if (paidAmount && isNaN(paidAmount)) {
+      return res.status(400).json({ error: 'Invalid paid amount' });
+    }
+
+
+    // First get the existing booking to get the customer ID
+    const getBookingQuery = 'SELECT customerId FROM booking WHERE bookingId = ?';
+    const booking = await queryDatabase(getBookingQuery, [id]);
+
+    if (!booking.length) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+    const customerId = booking[0].customerId;
+
+    const getPaymentQuery = 'SELECT paymentId FROM payment WHERE bookingId = ?';
+    const payment = await queryDatabase(getPaymentQuery, [id]);
+
+    if (!payment.length) {
+      return res.status(404).json({ error: 'PaymentId not found' });
+    }
+    const paymentId = payment[0].paymentId;
+
+    // update payemnt information
+    const updatePaymentQuery = `
+      UPDATE payment
+      SET paymentAmount = ?
+      WHERE paymentId = ?
+    `;
+
+    await queryDatabase(updatePaymentQuery, [
+      paidAmount,
+      paymentId
+    ]);
+
+
+    // Update customer information
+    const updateCustomerQuery = `
+      UPDATE Customers 
+      SET fullName = ?, 
+          email = ?, 
+          billingMobile = ?, 
+          billingAddress = ?
+      WHERE customerId = ?
+    `;
+
+    await queryDatabase(updateCustomerQuery, [
+      fullName,
+      email,
+      billingMobile,
+      billingAddress,
+      customerId
+    ]);
+
+    // Update booking information
+    const updateBookingQuery = `
+      UPDATE booking 
+      SET packageId = ?,
+          eventDate = ?,
+          eventTime = ?,
+          venue = ?,
+          bookingStatus = ?,
+          notes = ?
+      WHERE bookingId = ?
+    `;
+
+    await queryDatabase(updateBookingQuery, [
+      packageId,
+      eventDate,
+      eventTime,
+      venue,
+      bookingStatus,
+      notes,
+      id
+    ]);
+
+    res.json({
+      message: 'Booking updated successfully',
+      bookingId: id,
+      updatedDetails: {
+        fullName,
+        email,
+        eventDate,
+        packageId,
+        bookingStatus
+      }
+    });
+
+  } catch (error) {
+    console.error('Error in updateBooking:', error);
+    
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      return res.status(400).json({ error: 'Referenced package does not exist' });
+    }
+    
+    res.status(500).json({
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+    });
+  }
 };
 
 const queryDatabase = (query, params) => {

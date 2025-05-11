@@ -143,9 +143,10 @@ body {
 
 /* Header Styling */
 .photo-admin-header {
-  height: 70px;
+  height: 50px;
   background-color: #fff;
   display: flex;
+  margin-bottom: 1rem;
   align-items: center;
   justify-content: space-between;
   padding: 0 2rem;

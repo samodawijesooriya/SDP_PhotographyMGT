@@ -280,7 +280,7 @@ const Booking = ({setShowLogin}) => {
       if(bookingStatus === 'Pencil') {
         basePrice = 0; // No payment for Pencil booking
       } else if(bookingStatus === 'Pending') {
-        basePrice = selectedPackage.investedAmount / 2; // 50% deposit
+        basePrice = 20000; 
       }
       else if(bookingStatus === 'Confirm') {
         basePrice = selectedPackage.investedAmount; // Full payment

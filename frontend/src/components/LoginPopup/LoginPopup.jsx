@@ -69,6 +69,7 @@ const Login = ({setShowLogin}) => {
           // Stay on booking page but refresh to update data
           window.location.reload();
         } else if (response.data.user.role === 'photographer') {
+          // Navigate to photographer dashboard
           navigate('/admin-dashboard');
         } else if (response.data.user.role === 'admin') {
           navigate('/userView');

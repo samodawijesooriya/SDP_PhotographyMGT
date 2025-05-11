@@ -1,24 +1,23 @@
 /* ManageBookings.css */
 .bookings-management {
   padding: 25px;
-  max-width: 1300px;
+  max-width: 1400px;
   margin: 0 auto;
   background-color: #f9fafb;
   min-height: calc(100vh - 80px);
 }
 
-.search-container {
+.search-container1 {
   width: 100%;
-  margin-bottom: 25px;
   position: relative;
 }
 
 .search-input {
   width: 100%;
-  padding: 12px 18px;
+  padding: 0.9rem 18px;
   font-size: 15px;
   border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border-radius: 2px; /* Changed from default to 2px */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
 }
@@ -26,7 +25,6 @@
 .search-input:focus {
   outline: none;
   border-color: #4a90e2;
-  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
 }
 
 /* Table Styles */
@@ -394,22 +392,16 @@
 /* Success Alert */
 .success-alert {
   position: fixed;
-    top: 2rem;
-    right: 2rem;
-    padding: 1rem 1.5rem;
     border-radius: 4px;
-    display: flex;
     align-items: center;
-    gap: 0.5rem;
     color: white;
     animation: slideIn 0.3s ease-out;
     z-index: 1000;
 }
 
 .success-alert-content {
-  display: flex;
   align-items: center;
-  padding: 14px 24px;
+  padding: 1rem 1rem;
   border-radius: 8px;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
   max-width: 400px;
@@ -459,6 +451,92 @@
     transform: translateX(0);
     opacity: 1;
   }
+}
+
+/* Delete Modal Styles */
+.delete-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.delete-modal {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 500px;
+    padding: 2rem;
+    position: relative;
+}
+
+.delete-modal-header {
+    margin-bottom: 1.5rem;
+    text-align: center;
+}
+
+.delete-modal-header h3 {
+    font-size: 1.5rem;
+    color: #f44336;
+    margin-bottom: 0.5rem;
+}
+
+.delete-modal-content {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.delete-modal-content p {
+    font-size: 1.1rem;
+    color: #555;
+}
+
+.package-name-highlight {
+    font-weight: 600;
+    color: #333;
+}
+
+.delete-modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.cancel-delete-btn {
+    padding: 0.75rem 1.5rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s;
+}
+
+.cancel-delete-btn:hover {
+    background-color: #5a6268;
+}
+
+.confirm-delete-btn {
+    padding: 0.75rem 1.5rem;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s;
+}
+
+.confirm-delete-btn:hover {
+    background-color: #d32f2f;
 }
 
 /* Loading and Error States */
@@ -597,14 +675,10 @@
   margin-bottom: 20px;
 }
 
-.search-container {
-  flex: 1;
-  margin-right: 15px;
-  margin-bottom: 0;
-}
+
 
 .cleanup-btn {
-  padding: 13px 16px;
+  padding: 0.5rem 1rem;
   margin-bottom: 10px;
   background-color: #ef4444;
   color: white;
