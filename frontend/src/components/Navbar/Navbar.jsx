@@ -91,7 +91,7 @@ const Navbar = ({ setShowLogin }) => {
                     Home
                 </Link>
                 <Link 
-                    to="/gallery" 
+                    to="/album" 
                     className={`nav-link ${isMobile ? 'mobile-nav-link' : ''}`}
                     onClick={isMobile ? toggleMobileMenu : undefined}
                 >

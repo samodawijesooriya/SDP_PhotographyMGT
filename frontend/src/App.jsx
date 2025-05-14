@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import NotFound from './components/NotFound/NotFound';
 import PaymentSuccess from '../src/pages/Booking/PaymentSuccess';
 import BookingSuccess from './pages/Booking/Booking-success';
+import AlbumList from './pages/Albums/AlbumList';
 
 // Protected route component for authenticated users
 const ProtectedRoute = ({ children }) => {
@@ -93,12 +94,12 @@ const AppContent = () => {
           {/* Public routes */}
           <Route path='/' element={<Home />} />
           <Route path='/about' element={<AboutMe />} />
-          <Route path='/gallery' element={<Gallery />} />
+          <Route path='/gallery/:albumId' element={<Gallery />} />
           <Route path='/contact' element={<Contact />} />
           <Route path="/events" element={<Events />} />
-          <Route path="/album/:albumName" element={<Album />} />
           <Route path="/login" element={<LoginPage />} />
-          
+          <Route path="/album" element={<AlbumList />} />
+
           {/* Protected routes - require authentication */}
           <Route 
             path="/booking" 

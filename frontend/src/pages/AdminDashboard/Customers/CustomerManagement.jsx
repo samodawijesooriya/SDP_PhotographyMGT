@@ -17,7 +17,10 @@ const CustomerManagement = () => {
   const [isEditCustomerFormOpen, setIsEditCustomerFormOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [successAlert, setSuccessAlert] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState(null);
   const [alertType, setAlertType] = useState("success");
+  const [deleteError, setDeleteError] = useState(null);
 
   const fetchCustomers = async () => {
     try {
@@ -40,21 +43,33 @@ const CustomerManagement = () => {
       setSuccessAlert(null);
     }, 5000);
   };
+  
+  const openDeleteModal = (customer) => {
+    setCustomerToDelete(customer);
+    setDeleteModalOpen(true);
+    setDeleteError(null); // Reset any previous delete errors
+  };
+
+  const closeDeleteModal = () => {
+    setCustomerToDelete(null);
+    setDeleteModalOpen(false);
+    setDeleteError(null);
+  };
 
   const handleDeleteCustomer = async (customerId) => {
-    if (window.confirm('Are you sure you want to delete this Customer?')) {
-      try {
-        await axios.delete(`${url}/api/customers/${customerId}`);
-        fetchCustomers();
-        showSuccessAlert(`Customer deleted successfully!`, "delete");
-      } catch (err) {
-        setError(err.message);
-      }
+    try {
+      await axios.delete(`${url}/api/customers/${customerId}`);
+      fetchCustomers();
+      showSuccessAlert(`Customer deleted successfully!`, "delete");
+      closeDeleteModal();
+    } catch (err) {
+      // Instead of window.alert, show the error in the modal
+      setDeleteError(err.response?.data?.message || "This customer cannot be deleted. They may have associated records.");
     }
   };
 
-  const handleEditCustomer = (customers) => {
-    setSelectedCustomer(customers);
+  const handleEditCustomer = (customer) => {
+    setSelectedCustomer(customer);
     setIsEditCustomerFormOpen(true);
   };
 
@@ -94,7 +109,6 @@ const CustomerManagement = () => {
   return (
     <div className="customers-page">
       <div className="page-header">
-        <h1>Customer Management</h1>
         
         {/* Inline Alert - Placed near the title */}
         {successAlert && (
@@ -112,6 +126,43 @@ const CustomerManagement = () => {
           </div>
         )}
       </div>
+      
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && customerToDelete && (
+        <div className="delete-modal-overlay">
+          <div className="delete-modal">
+            <div className="delete-modal-content">
+              <div className="delete-modal-header">
+                <h3>Confirm Deletion</h3>
+              </div>
+              <p>Are you sure you want to delete <span className="package-name-highlight">{customerToDelete.fullName}</span>?</p>
+              <p>This action cannot be undone.</p>
+              
+              {/* Display error message if delete fails */}
+              {deleteError && (
+                <div className="delete-error-message">
+                  {deleteError}
+                </div>
+              )}
+              
+              <div className="delete-modal-actions">
+                <button
+                  className="cancel-delete-btn"
+                  onClick={closeDeleteModal}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="confirm-delete-btn"
+                  onClick={() => handleDeleteCustomer(customerToDelete.customerId)}
+                >
+                  Delete Customer
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="top-bar">
         <div className="search-wrapper">
@@ -177,15 +228,15 @@ const CustomerManagement = () => {
                   </div>
                 </td>
                 <td>
-                  <div className="actions">
-                  <button 
+                  <div className="actions">                  
+                    <button 
                       className="btn-icon"
                       onClick={() => handleEditCustomer(customer)}>
                       <Edit size={16} />
                     </button>
                     <button 
                       className="btn-icon delete"
-                      onClick={() => handleDeleteCustomer(customer.customerId)}
+                      onClick={() => openDeleteModal(customer)}
                     >
                       <Trash2 size={16} />
                     </button>

@@ -12,6 +12,7 @@ import cron from 'node-cron';
 import cleanupPencilBookings from './controllers/cleanup-bookings.js';
 import emailRouter from './routes/emailRoutes.js';
 import homeRouter from './routes/homeRouter.js';
+import driveRouter from './routes/driveRoutes.js';
 
 // app config
 dotenv.config();
@@ -36,6 +37,8 @@ app.use('/api/customers', customerRouter);
 app.use('/api/email', emailRouter);
 
 app.use('/api/home', homeRouter);
+
+app.use('/api/drive', driveRouter);
 
 // request the data from the server
 app.get("/", (req, res) => {

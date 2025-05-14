@@ -54,6 +54,60 @@ ORDER BY
     }
   };
 
+  const getBookingByUserId = async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const query = `
+          SELECT 
+          b.*,
+          c.fullName, 
+          c.email, 
+          c.billingAddress, 
+          c.billingMobile,
+          p.packageName, 
+          p.coverageHours, 
+          p.investedAmount,
+          e.eventName,
+          COALESCE(p.investedAmount, 0) - COALESCE(pay_sum.total_paid, 0) AS balanceAmount
+      FROM 
+          Booking b
+      JOIN 
+          Customers c ON b.customerId = c.customerId
+      LEFT JOIN 
+          Package p ON b.packageId = p.packageId
+      LEFT JOIN 
+          Event e ON p.eventId = e.eventId
+      LEFT JOIN (
+          SELECT 
+          bookingId, 
+          SUM(paymentAmount) AS total_paid
+          FROM 
+          Payment
+          WHERE 
+          paymentStatus = 'Completed' OR paymentStatus = 'Pending'
+          GROUP BY 
+          bookingId
+      ) pay_sum ON pay_sum.bookingId = b.bookingId
+      WHERE c.userID = ?
+      ORDER BY 
+          b.eventDate DESC;
+        `;
+
+      db.query(query, [userId], (err, results) => {
+        if (err) {
+          console.error('Error fetching bookings:', err);
+          return res.status(500).json({ error: 'Failed to fetch bookings' });
+        }
+        console.log('Fetched bookings:', results);
+        res.json(results);
+      });
+    } catch (error) {
+      console.error('Error in getBookingByUserId:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+
+  };
+
   // Delete a booking
 // Delete a booking
 const deleteBooking = async (req, res) => {
@@ -556,8 +610,8 @@ const createPendingBooking = async (req, res) => {
       let newDepositId = null;
 
       // Check if customer already exists with the same name and email
-      const checkExistingCustomerQuery = 'SELECT customerId FROM Customers WHERE email = ? AND fullName = ? LIMIT 1';
-      const existingCustomer = await queryDatabase(checkExistingCustomerQuery, [email, fullName]);
+      const checkExistingCustomerQuery = 'SELECT customerId FROM Customers WHERE email = ? LIMIT 1';
+      const existingCustomer = await queryDatabase(checkExistingCustomerQuery, [email]);
 
       let newCustomerId;
 
@@ -573,9 +627,14 @@ const createPendingBooking = async (req, res) => {
         // Generate new customer ID (increment from last one or start at 1)
         newCustomerId = lastCustomer.length > 0 ? lastCustomer[0].customerId + 1 : 1;
 
+        // get the user id from the email
+        const getUserIdQuery = 'SELECT userID FROM user WHERE email = ? LIMIT 1';
+        const userIdResult = await queryDatabase(getUserIdQuery, [email]);
+        const userId = userIdResult.length > 0 ? userIdResult[0].userID : null;
+
         // Insert new customer
-        const customerQuery = 'INSERT INTO Customers (customerId, fullName, email, billingMobile, billingAddress) VALUES (?, ?, ?, ?, ?)';
-        const customerResult = await queryDatabase(customerQuery, [newCustomerId, fullName, email, billingMobile, billingAddress]);
+        const customerQuery = 'INSERT INTO Customers (customerId, fullName, email, billingMobile, billingAddress, userID) VALUES (?, ?, ?, ?, ?, ?)';
+        const customerResult = await queryDatabase(customerQuery, [newCustomerId, fullName, email, billingMobile, billingAddress, userId]);
 
         if (!customerResult || !customerResult.affectedRows) {
           throw new Error('Failed to insert customer');
@@ -857,5 +916,6 @@ const getBookingDates = async (req, res) => {
     getCalendarBookings,
     getBookingsByDate,
     createPendingBooking,
-    getBookingDates
+    getBookingDates,
+    getBookingByUserId
   };

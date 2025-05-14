@@ -10,6 +10,7 @@ import {
     getBookingsByDate,
     createPendingBooking,
     getBookingDates,
+    getBookingByUserId
 } from '../controllers/bookingController.js';
 
 import cleanupPencilBookings from '../controllers/cleanup-bookings.js';
@@ -19,6 +20,8 @@ const bookingRouter = express.Router();
 
 // Get all bookings
 bookingRouter.get('/', getAllBookings);
+
+bookingRouter.get('/user/:userId', getBookingByUserId);
 
 // create a booking
 bookingRouter.post('/create', upload.single('bankReceiptImage'), createBooking);

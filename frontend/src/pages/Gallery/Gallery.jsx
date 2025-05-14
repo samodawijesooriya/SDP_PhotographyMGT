@@ -1,60 +1,162 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import axios from 'axios';
 import './Gallery.css';
-import { assets } from '../../assets/assets';
-import Footer from '../../components/Footer/Footer';
+import { StoreContext } from '../../context/StoreContext';
 
 const Gallery = () => {
-  const navigate = useNavigate();
+  const { albumId } = useParams();
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const { url } = useContext(StoreContext);
+  
+  // Fetch images from the selected album
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${url}/api/drive/${albumId}/images`);
+        setImages(response.data);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching images:', err);
+        setError('Failed to load images. Please try again later.');
+        setLoading(false);
+      }
+    };
 
-  const galleryItems = [
-    { id: 1, image: assets.image01, album: 'Bridal Collection' },
-    { id: 2, image: assets.image02, album: 'Graduation' },
-    { id: 3, image: assets.image03, album: 'Kids Photography' },
-    { id: 4, image: assets.image04, album: 'Portrait' },
-    { id: 5, image: assets.image05, album: 'Graduation' },
-    { id: 6, image: assets.image06, album: 'Fashion' },
-    { id: 7, image: assets.image07, album: 'Outdoor' },
-    { id: 8, image: assets.image08, album: 'Casual' },
-    { id: 9, image: assets.image09, album: 'Couple Shoot' }
-  ];
+    fetchImages();
+  }, [albumId]);
 
-  // Function to handle album navigation
-  const handleAlbumClick = (albumName) => {
-    // Convert album name to URL-friendly format
-    const urlFriendlyAlbumName = albumName.toLowerCase().replace(/\s+/g, '-');
-    navigate(`/album/${urlFriendlyAlbumName}`);
+  // Handle opening the lightbox
+  const openLightbox = (index) => {
+    setSelectedImage(index);
+    document.body.style.overflow = 'hidden'; // Prevent scrolling when lightbox is open
   };
 
-  return (
-    <div>
-    <div className="gallery-container">
-      <div className="header-section">
-          <h1 className="main-title">My Gallery</h1>
-          <div className="title-underline"></div>
+  // Handle closing the lightbox
+  const closeLightbox = () => {
+    setSelectedImage(null);
+    document.body.style.overflow = 'auto'; // Re-enable scrolling
+  };
+
+  // Navigate through images in lightbox
+  const navigateImage = useCallback((direction) => {
+    if (selectedImage === null) return;
+    
+    let newIndex;
+    if (direction === 'next') {
+      newIndex = (selectedImage + 1) % images.length;
+    } else {
+      newIndex = (selectedImage - 1 + images.length) % images.length;
+    }
+    setSelectedImage(newIndex);
+  }, [selectedImage, images.length]);
+
+  // Keyboard navigation for lightbox
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (selectedImage === null) return;
+      
+      switch (e.key) {
+        case 'ArrowRight':
+          navigateImage('next');
+          break;
+        case 'ArrowLeft':
+          navigateImage('prev');
+          break;
+        case 'Escape':
+          closeLightbox();
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedImage, navigateImage]);
+
+  if (loading) {
+    return (
+      <div className="gallery-container loading">
+        <div className="loader"></div>
+        <p>Loading images...</p>
       </div>
-      <div className='gallery-container2'>
-      <div className="gallery-grid">
-        {galleryItems.map((item) => (
-          <div 
-            key={item.id} 
-            className="gallery-item" 
-            onClick={() => handleAlbumClick(item.album)}
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="gallery-container error">
+        <p>{error}</p>
+        <button onClick={() => window.location.reload()}>Retry</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="gallery-container">
+      <div className="gallery-header">
+        <Link to="/album" className="back-button">
+          <i className="fa fa-arrow-left"></i> Back to Albums
+        </Link>
+      </div>
+
+      {images.length > 0 ? (
+        <div className="gallery-grid">
+          {images.map((image, index) => (
+            <div 
+              key={image.id} 
+              className="gallery-item"
+              onClick={() => openLightbox(index)}
+            >
+              <img 
+                src={image.imageUrl} 
+                alt={image.name}
+                loading="lazy"
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="no-images">
+          <p>No images found in this album.</p>
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {selectedImage !== null && (
+        <div className="lightbox">
+          <div className="lightbox-overlay" onClick={closeLightbox}></div>
+          <button className="lightbox-close" onClick={closeLightbox}>×</button>
+          <button 
+            className="lightbox-nav prev" 
+            onClick={() => navigateImage('prev')}
           >
-            <img
-              src={item.image}
-              alt={item.album}
-              className="gallery-image"
+            <i className="fa fa-chevron-left"></i>
+          </button>
+          <div className="lightbox-content">
+            <img 
+              src={images[selectedImage].imageUrl} 
+              alt={images[selectedImage].name} 
             />
-            <div className="gallery-overlay">
-              <h3 className="album-title">{item.album}</h3>
+            <div className="lightbox-caption">
+              {images[selectedImage].name}
             </div>
           </div>
-        ))}
-      </div>
-      </div>
-    </div>
-    <Footer />
+          <button 
+            className="lightbox-nav next" 
+            onClick={() => navigateImage('next')}
+          >
+            <i className="fa fa-chevron-right"></i>
+          </button>
+        </div>
+      )}
     </div>
   );
 };

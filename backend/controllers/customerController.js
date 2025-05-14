@@ -180,34 +180,49 @@ const deleteCustomer = async (req, res) => {
     const { customerId } = req.params;
     
     try {
-        // First find the userID of the customer
-        db.query('SELECT userID FROM customers WHERE customerId = ?', [customerId], (err, result) => {
+        // First check if customer has any bookings
+        db.query('SELECT * FROM booking WHERE customerId = ?', [customerId], (err, bookings) => {
             if (err) {
-                console.error("Error finding userID:", err);
-                return res.status(500).json({ error: "Failed to find customer" });
+                console.error("Error checking bookings:", err);
+                return res.status(500).json({ error: "Failed to check customer bookings" });
             }
             
-            if (result.length === 0) {
-                return res.status(404).json({ error: "Customer not found" });
+            if (bookings.length > 0) {
+                return res.status(400).json({ 
+                    error: "Cannot delete customer with existing bookings",
+                    bookingsCount: bookings.length
+                });
             }
-            
-            const userId = result[0].userID;
-            
-            // Delete the customer first
-            db.query('DELETE FROM customers WHERE customerId = ?', [customerId], (err) => {
+
+            // If no bookings, proceed with deletion
+            db.query('SELECT userID FROM customers WHERE customerId = ?', [customerId], (err, result) => {
                 if (err) {
-                    console.error("Error deleting customer:", err);
-                    return res.status(500).json({ error: "Failed to delete customer" });
+                    console.error("Error finding userID:", err);
+                    return res.status(500).json({ error: "Failed to find customer" });
                 }
                 
-                // Then delete the user after customer is deleted
-                db.query('DELETE FROM user WHERE userID = ?', [userId], (err) => {
+                if (result.length === 0) {
+                    return res.status(404).json({ error: "Customer not found" });
+                }
+                
+                const userId = result[0].userID;
+                
+                // Delete the customer first
+                db.query('DELETE FROM customers WHERE customerId = ?', [customerId], (err) => {
                     if (err) {
-                        console.error("Error deleting user:", err);
-                        return res.status(500).json({ error: "Failed to delete user" });
+                        console.error("Error deleting customer:", err);
+                        return res.status(500).json({ error: "Failed to delete customer" });
                     }
                     
-                    return res.status(200).json({ message: "Customer and associated user deleted successfully" });
+                    // Then delete the user after customer is deleted
+                    db.query('DELETE FROM user WHERE userID = ?', [userId], (err) => {
+                        if (err) {
+                            console.error("Error deleting user:", err);
+                            return res.status(500).json({ error: "Failed to delete user" });
+                        }
+                        
+                        return res.status(200).json({ message: "Customer and associated user deleted successfully" });
+                    });
                 });
             });
         });
