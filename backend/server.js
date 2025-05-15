@@ -13,6 +13,7 @@ import cleanupPencilBookings from './controllers/cleanup-bookings.js';
 import emailRouter from './routes/emailRoutes.js';
 import homeRouter from './routes/homeRouter.js';
 import driveRouter from './routes/driveRoutes.js';
+import { initScheduler, sendDailySummaryEmail } from './utils/scheduler.js';
 
 // app config
 dotenv.config();
@@ -56,9 +57,24 @@ app.get('/user', (req, res)=>{
 // Schedule task to run at midnight every day
 cron.schedule('0 0 * * *', () => {
     cleanupPencilBookings();
-  });
+});
+
+// Schedule task to send daily booking summary at 6:00 PM every day
+cron.schedule('0 23 * * *', () => {
+    console.log('Running scheduled daily booking summary task...');
+    sendDailySummaryEmail()
+        .then(result => {
+            console.log('Daily booking summary email result:', result);
+        })
+        .catch(err => {
+            console.error('Error sending daily booking summary:', err);
+        });
+});
 
 // to run the server
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
+    
+    // Initialize the scheduler for daily booking summary
+    initScheduler(app);
 });

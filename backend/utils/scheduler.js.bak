@@ -1,0 +1,195 @@
+// scheduler.js
+import nodemailer from 'nodemailer';
+import emailTemplates from './utils/emailTemplates.js';
+import db from './config/db.js';
+import 'dotenv/config';
+
+// Create email transporter
+const transporter = nodemailer.createTransport({
+  service: process.env.EMAIL_SERVICE,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD,
+  }
+});
+
+/**
+ * Gets booking statistics for the current day
+ * @returns {Promise<Object>} Statistics about today's bookings
+ */
+const getTodayBookingStats = async () => {
+  try {
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Query to get counts of bookings by status
+    const countQuery = `
+      SELECT 
+        COUNT(CASE WHEN bookingStatus = 'Cancelled' THEN 1 END) as cancelledCount,
+        COUNT(CASE WHEN bookingStatus = 'Pending' THEN 1 END) as pendingCount,
+        COUNT(CASE WHEN bookingStatus = 'Confirmed' THEN 1 END) as confirmedCount,
+        COUNT(CASE WHEN bookingStatus = 'Pencil' THEN 1 END) as pencilCount,
+        COUNT(*) as totalCount,
+        COUNT(CASE WHEN DATE(createdAt) = ? THEN 1 END) as newBookingsCount
+      FROM booking
+    `;
+    
+    // Execute the query with today's date
+    return new Promise((resolve, reject) => {
+      db.query(countQuery, [today], (err, results) => {
+        if (err) {
+          console.error('Error getting booking stats:', err);
+          reject(err);
+        } else {
+          resolve(results[0]);
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Error in getTodayBookingStats:', error);
+    throw error;
+  }
+};
+
+/**
+ * Gets detailed information about confirmed bookings
+ * @returns {Promise<Array>} List of confirmed bookings with details
+ */
+const getConfirmedBookings = async () => {
+  try {
+    const query = `
+      SELECT 
+        b.*, 
+        c.fullName, 
+        c.email,
+        p.packageName, 
+        p.coverageHours, 
+        e.eventName
+      FROM Booking b
+      JOIN Customers c ON b.customerId = c.customerId
+      LEFT JOIN Package p ON b.packageId = p.packageId
+      LEFT JOIN Event e ON p.eventId = e.eventId
+      WHERE b.bookingStatus = 'Confirmed'
+      ORDER BY b.eventDate ASC
+    `;
+    
+    return new Promise((resolve, reject) => {
+      db.query(query, (err, results) => {
+        if (err) {
+          console.error('Error getting confirmed bookings:', err);
+          reject(err);
+        } else {
+          resolve(results);
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Error in getConfirmedBookings:', error);
+    throw error;
+  }
+};
+
+/**
+ * Sends the daily booking summary email to the photographer
+ * This function is meant to be called by the scheduler at the end of the day
+ */
+const sendDailySummaryEmail = async () => {
+  try {
+    console.log('Preparing to send daily booking summary email...');
+    
+    // Get booking statistics
+    const bookingStats = await getTodayBookingStats();
+    
+    // Get detailed information about confirmed bookings
+    const confirmedBookings = await getConfirmedBookings();
+    
+    // Format the data for the email template
+    const { subject, html } = emailTemplates.dailyBookingSummary({
+      date: new Date().toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }),
+      bookingStats,
+      confirmedBookings
+    });
+    
+    // Get the administrator's email from environment variable or use a default
+    const adminEmail = process.env.ADMIN_EMAIL || 'studio@pathumlweerasighe.com';
+    
+    // Email options
+    const mailOptions = {
+      from: `"Photography Studio" <${process.env.EMAIL_FROM}>`,
+      to: adminEmail,
+      subject: subject,
+      html: html
+    };
+    
+    // Send email
+    const info = await transporter.sendMail(mailOptions);
+    
+    console.log(`Daily booking summary email sent to ${adminEmail}`);
+    console.log('Email info:', info);
+    
+    return {
+      success: true,
+      message: 'Daily booking summary email sent successfully'
+    };
+  } catch (error) {
+    console.error('Error sending daily summary email:', error);
+    return {
+      success: false,
+      message: 'Failed to send daily booking summary email',
+      error: error.message
+    };
+  }
+};
+
+/**
+ * Initializes the scheduler to send daily summary emails
+ * @param {Object} app - Express app instance
+ */
+const initScheduler = (app) => {
+  console.log('Initializing email scheduler...');
+  
+  // Set up a middleware to check the time and trigger the email if needed
+  app.use((req, res, next) => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    
+    // Check if it's the end of the day (e.g., 6:00 PM)
+    if (hours === 18 && minutes === 0) {
+      // Store the last time the email was sent
+      const lastSent = app.locals.lastDailySummarySent || 0;
+      const currentDay = now.toISOString().split('T')[0];
+      
+      // Only send once per day
+      if (lastSent !== currentDay) {
+        console.log('Triggering daily summary email...');
+        sendDailySummaryEmail()
+          .then(result => {
+            if (result.success) {
+              app.locals.lastDailySummarySent = currentDay;
+              console.log('Daily summary email sent successfully');
+            } else {
+              console.error('Failed to send daily summary email:', result.error);
+            }
+          })
+          .catch(err => {
+            console.error('Error in daily summary email scheduler:', err);
+          });
+      }
+    }
+    
+    next();
+  });
+  
+  console.log('Email scheduler initialized. Daily summary will be sent at 6:00 PM.');
+};
+
+export {
+  sendDailySummaryEmail,
+  initScheduler
+};

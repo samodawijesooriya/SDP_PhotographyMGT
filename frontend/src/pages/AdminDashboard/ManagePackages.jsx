@@ -146,51 +146,77 @@ const ManagePackages = () => {
 
     const removeSelectedDetail = (detailId) => {
         setSelectedDetails(selectedDetails.filter(detail => detail.detailId !== detailId));
-    };
+    };    const handleEditPackage = (pkg) => {
+        try {
+            console.log("Edit Package triggered with:", pkg);
+            setIsEditMode(true);
+            setSelectedPackage(pkg);
+            setIsAddingNew(false);
 
-    const handleEditPackage = (pkg) => {
-        setIsEditMode(true);
-        setSelectedPackage(pkg);
-        setIsAddingNew(false);
-
-        // Prepare selected items
-        const itemsToSelect = pkg.items ? 
-        pkg.items.split(';').reduce((acc, itemStr) => {
-            const match = itemStr.trim().match(/(.+?)\s*\((\d+)\)/);
-            if (match) {
-                const [, itemType, quantityStr] = match;
+            // Prepare selected items
+            const itemsToSelect = pkg.items ? 
+            pkg.items.split(';').reduce((acc, itemStr) => {
+                // Improved parsing for different item string formats
+                let itemType, quantity;
+                
+                // Try to match the pattern "Item Type (quantity)"
+                const match1 = itemStr.trim().match(/(.+?)\s*\((\d+)\)/);
+                if (match1) {
+                    [, itemType, quantity] = match1;
+                } else {
+                    // Try to match the pattern "Item Type:quantity"
+                    const match2 = itemStr.trim().match(/(.+?)\s*:\s*(\d+)/);
+                    if (match2) {
+                        [, itemType, quantity] = match2;
+                    } else {
+                        // Just take the whole string as item type with default quantity
+                        itemType = itemStr.trim();
+                        quantity = 1;
+                    }
+                }
+                
+                // Find the matching item in packageItems array
                 const matchedItem = packageItems.find(item => 
-                    item.itemType.trim() === itemType.trim()
+                    item.itemType.trim().toLowerCase() === itemType.trim().toLowerCase()
                 );
+                
                 if (matchedItem) {
                     acc.push({
                         itemId: matchedItem.itemId,
                         itemType: matchedItem.itemType,
-                        quantity: parseInt(quantityStr) || 1
+                        quantity: parseInt(quantity) || 1
                     });
+                } else {
+                    console.log(`Could not find matching item for '${itemType}'`);
                 }
-            }
-            return acc;
-        }, [])
-        : [];
-        setSelectedItems(itemsToSelect);
+                
+                return acc;
+            }, [])
+            : [];
+            console.log("Parsed items:", itemsToSelect);
+            setSelectedItems(itemsToSelect);
 
-        // Prepare selected details
-        const detailsToSelect = pkg.details ? 
-        pkg.details.split(';').reduce((acc, detailDescription) => {
-            const matchedDetail = packageDetails.find(detail => 
-                detail.detailDescription.trim() === detailDescription.trim()
-            );
-            if (matchedDetail) {
-                acc.push(matchedDetail);
-            }
-            return acc;
-        }, [])
-        : [];
-        setSelectedDetails(detailsToSelect);
-    };
+            // Prepare selected details
+            const detailsToSelect = pkg.details ? 
+            pkg.details.split(';').reduce((acc, detailDescription) => {
+                const matchedDetail = packageDetails.find(detail => 
+                    detail.detailDescription.trim() === detailDescription.trim()
+                );
+                if (matchedDetail) {
+                    acc.push(matchedDetail);
+                }
+                return acc;
+            }, [])
+            : [];
+            console.log("Parsed details:", detailsToSelect);
+            setSelectedDetails(detailsToSelect);
 
-    const handleViewPackage = (pkg) => {
+            console.log("Edit mode enabled with package:", pkg.packageId);
+        } catch (error) {
+            console.error("Error in handleEditPackage:", error);
+            setError("Failed to prepare package for editing. Please try again.");
+        }
+    };    const handleViewPackage = (pkg) => {
         setIsViewMode(true);
         setSelectedPackage(pkg);
         setIsAddingNew(false);
@@ -199,20 +225,40 @@ const ManagePackages = () => {
         // Prepare selected items for viewing
         const itemsToSelect = pkg.items ? 
         pkg.items.split(';').reduce((acc, itemStr) => {
-            const match = itemStr.trim().match(/(.+?)\s*\((\d+)\)/);
-            if (match) {
-                const [, itemType, quantityStr] = match;
-                const matchedItem = packageItems.find(item => 
-                    item.itemType.trim() === itemType.trim()
-                );
-                if (matchedItem) {
-                    acc.push({
-                        itemId: matchedItem.itemId,
-                        itemType: matchedItem.itemType,
-                        quantity: parseInt(quantityStr) || 1
-                    });
+            // Improved parsing for different item string formats
+            let itemType, quantity;
+            
+            // Try to match the pattern "Item Type (quantity)"
+            const match1 = itemStr.trim().match(/(.+?)\s*\((\d+)\)/);
+            if (match1) {
+                [, itemType, quantity] = match1;
+            } else {
+                // Try to match the pattern "Item Type:quantity"
+                const match2 = itemStr.trim().match(/(.+?)\s*:\s*(\d+)/);
+                if (match2) {
+                    [, itemType, quantity] = match2;
+                } else {
+                    // Just take the whole string as item type with default quantity
+                    itemType = itemStr.trim();
+                    quantity = 1;
                 }
             }
+            
+            // Find the matching item in packageItems array
+            const matchedItem = packageItems.find(item => 
+                item.itemType.trim().toLowerCase() === itemType.trim().toLowerCase()
+            );
+            
+            if (matchedItem) {
+                acc.push({
+                    itemId: matchedItem.itemId,
+                    itemType: matchedItem.itemType,
+                    quantity: parseInt(quantity) || 1
+                });
+            } else {
+                console.log(`Could not find matching item for '${itemType}'`);
+            }
+            
             return acc;
         }, [])
         : [];
@@ -254,19 +300,16 @@ const ManagePackages = () => {
             await axios.delete(`${url}/api/packages/${packageToDelete.packageId}`);
             showSuccessAlert(`Package "${packageToDelete.packageName}" deleted successfully!`, 'delete');
             fetchPackages();
-            closeDeleteModal();
-        } catch (error) {
+            closeDeleteModal();        } catch (error) {
             console.error('Error deleting package:', error);
             setError('Failed to delete package. Please try again.');
             closeDeleteModal();
         }
-    };
-
-    const handlePackageSubmit = async (e) => {
+    };    const handlePackageSubmit = async (e) => {
         e.preventDefault();
         setFormSubmitting(true);
 
-        try {
+        try {                
             const packageData = {
                 packageName: e.target.packageName.value,
                 coverageHours: parseInt(e.target.coverageHours.value),
@@ -280,24 +323,42 @@ const ManagePackages = () => {
                 details: selectedDetails.map(detail => detail.detailId)
             };
 
-            if (isEditMode && selectedPackage) {
-                await axios.put(`${url}/api/packages/${selectedPackage.packageId}`, packageData);
-                showSuccessAlert(`Package "${packageData.packageName}" updated successfully!`, 'update');
-            } else {
-                await axios.post(`${url}/api/packages/create`, packageData);
-                showSuccessAlert(`Package "${packageData.packageName}" added successfully!`, 'success');
-            }
+            console.log('Package data for submission:', packageData);
 
-            // Reset form
+            if (isEditMode && selectedPackage) {
+                console.log('Updating package with ID:', selectedPackage.packageId);
+                try {
+                    const response = await axios.put(`${url}/api/packages/${selectedPackage.packageId}`, packageData);
+                    console.log('Update response:', response.data);
+                    showSuccessAlert(`Package "${packageData.packageName}" updated successfully!`, 'update');
+                } catch (updateError) {
+                    console.error('Update request failed:', updateError);
+                    console.error('Update error details:', updateError.response?.data);
+                    throw updateError;
+                }
+            } else {
+                try {
+                    const response = await axios.post(`${url}/api/packages/create`, packageData);
+                    console.log('Create response:', response.data);
+                    showSuccessAlert(`Package "${packageData.packageName}" added successfully!`, 'success');
+                } catch (createError) {
+                    console.error('Create request failed:', createError);
+                    console.error('Create error details:', createError.response?.data);
+                    throw createError;
+                }
+            }
+            
+            // Fetch updated packages and reset form
+            await fetchPackages();
             setIsEditMode(false);
             setIsAddingNew(false);
             setSelectedPackage(null);
             setSelectedItems([]);
-            setSelectedDetails([]);
-            fetchPackages();
-        } catch (error) {
+            setSelectedDetails([]);        } catch (error) {
             console.error('Failed to submit package:', error);
+            console.error('Error details:', error.response?.data);            
             setError(error.response?.data?.message || error.message || 'An error occurred while submitting the package. Please try again.');
+            showSuccessAlert(`Failed to ${isEditMode ? 'update' : 'add'} package. ${error.message}`, 'error');
         } finally {
             setFormSubmitting(false);
         }
@@ -441,21 +502,42 @@ const ManagePackages = () => {
                             <label>Package Tier</label>
                             <div className="value">{selectedPackage.packageTierName}</div>
                         </div>
-                    </div>
-
+                    </div>                    
+                    
                     {/* Package Items Section */}
                     <div className="view-package-section">
                         <h3>Package Items</h3>
-                        {selectedItems.length > 0 ? (
+                        {selectedPackage.items ? (
                             <div className="item-list">
-                                {selectedItems.map((item) => (
-                                    <div key={item.itemId} className="item-card">
-                                        <div className="item-info">
-                                            {item.itemType}
-                                            <span className="quantity">x{item.quantity}</span>
+                                {selectedPackage.items.split(';').map((itemStr, index) => {
+                                    // Parse the item string to extract item type and quantity
+                                    let itemType, quantity;
+                                    
+                                    // Try to match the pattern "Item Type (quantity)"
+                                    const match1 = itemStr.trim().match(/(.+?)\s*\((\d+)\)/);
+                                    if (match1) {
+                                        [, itemType, quantity] = match1;
+                                    } else {
+                                        // Try to match the pattern "Item Type:quantity"
+                                        const match2 = itemStr.trim().match(/(.+?)\s*:\s*(\d+)/);
+                                        if (match2) {
+                                            [, itemType, quantity] = match2;
+                                        } else {
+                                            // Just take the whole string as item type
+                                            itemType = itemStr.trim();
+                                            quantity = 1;
+                                        }
+                                    }
+                                    
+                                    return (
+                                        <div key={index} className="item-card">
+                                            <div className="item-info">
+                                                {itemType}
+                                                <span className="quantity"> {quantity}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         ) : (
                             <p>No items in this package</p>
@@ -741,7 +823,7 @@ const ManagePackages = () => {
                                 </option>
                             ))}
                         </select>
-                    </div>
+                    </div>                    
                     <div className="form-group">
                         <label htmlFor="packageTier">Package Tier</label>
                         <select 
@@ -764,70 +846,72 @@ const ManagePackages = () => {
                 </div>
 
                 {/* Package Items Section */}
-                <div className="form-section">
-                    <h3>Package Items</h3>
-                    <div className="form-group">
-                        <label htmlFor='itemSelect'>Select Item</label>
-                        <select 
-                            id="itemSelect" 
-                            onChange={handleItemSelect}
-                            value=""
-                        >
-                            <option value="">Choose an item to add</option>
-                            {packageItems
-                                .filter(item => !selectedItems.some(selected => selected.itemId === item.itemId))
-                                .map((item) => (
-                                    <option 
-                                        key={item.itemId} 
-                                        value={item.itemId}
-                                    >
-                                        {item.itemType}
-                                    </option>
-                            ))}
-                        </select>
-                    </div>
-                    {selectedItems.length > 0 && (
-                        <div className="selected-items-list">
-                            {selectedItems.map((item) => (
-                                <div key={item.itemId} className="selected-item-card">
-                                    <span className="item-type">{item.itemType}</span>
-                                    <div className="item-controls">
-                                        <div className="quantity-control">
-                                            <button
-                                                type="button"
-                                                className="quantity-btn"
-                                                onClick={() => handleQuantityChange(item.itemId, Math.max(1, item.quantity - 1))}
-                                            >
-                                                -
-                                            </button>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                value={item.quantity}
-                                                onChange={(e) => handleQuantityChange(item.itemId, e.target.value)}
-                                                className="quantity-input"
-                                            />
-                                            <button
-                                                type="button"
-                                                className="quantity-btn"
-                                                onClick={() => handleQuantityChange(item.itemId, item.quantity + 1)}
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => removeSelectedItem(item.itemId)}
-                                            className="remove-btn"
+                                <div className="form-section">
+                                    <h3>Package Items</h3>
+                                    <div className="form-group">
+                                        <label htmlFor='itemSelect'>Select Item</label>
+                                        <select 
+                                            id="itemSelect" 
+                                            onChange={handleItemSelect}
+                                            value=""
                                         >
-                                            <X size={18} />
-                                        </button>
+                                            <option value="">Choose an item to add</option>
+                                            {packageItems
+                                                .filter(item => !selectedItems.some(selected => selected.itemId === item.itemId))
+                                                .map((item) => (
+                                                    <option 
+                                                        key={item.itemId} 
+                                                        value={item.itemId}
+                                                    >
+                                                        {item.itemType}
+                                                    </option>
+                                            ))}
+                                        </select>
                                     </div>
+                                    {selectedItems.length > 0 && (
+                                        <div className="selected-items-list">
+                                            {selectedItems.map((item) => (
+                                                <div key={item.itemId} className="selected-item-card">
+                                                <span className="item-type">{item.itemType}</span>
+                                                    <div className="item-controls">
+                                                        <div className="quantity-control">
+                                                            <button
+                                                                type="button"
+                                                                className="quantity-btn"
+                                                                onClick={() => {
+                                                                    handleQuantityChange(item.itemId, item.quantity - 1);
+                                                                }}
+                                                            >
+                                                                -
+                                                            </button>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                value={item.quantity}
+                                                                onChange={(e) => handleQuantityChange(item.itemId, e.target.value)}
+                                                                className="quantity-input"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                className="quantity-btn"
+                                                                onClick={() => handleQuantityChange(item.itemId, item.quantity + 1)}
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeSelectedItem(item.itemId)}
+                                                            className="remove-btn"
+                                                        >
+                                                            <X size={18} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
 
                 {/* Package Details Section */}
                 <div className="form-section">

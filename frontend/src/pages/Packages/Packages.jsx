@@ -19,11 +19,28 @@ const formatCurrency = (amount) => {
 const parseItems = (itemsString) => {
     if (!itemsString) return [];
     
-    return itemsString.split(';').map(item => {
-        const [name, quantity] = item.trim().split(':');
+    return itemsString.split(';').map(itemStr => {
+        let itemType, quantity;
+        
+        // Try to match the pattern "Item Type (quantity)"
+        const match1 = itemStr.trim().match(/(.+?)\s*\((\d+)\)/);
+        if (match1) {
+            [, itemType, quantity] = match1;
+        } else {
+            // Try to match the pattern "Item Type:quantity"
+            const match2 = itemStr.trim().match(/(.+?)\s*:\s*(\d+)/);
+            if (match2) {
+                [, itemType, quantity] = match2;
+            } else {
+                // Just take the whole string as item type with default quantity
+                itemType = itemStr.trim();
+                quantity = 1;
+            }
+        }
+        
         return {
-            name: name,
-            quantity: quantity || 1
+            itemType: itemType,
+            quantity: parseInt(quantity) || 1
         };
     });
 };
@@ -58,15 +75,14 @@ const PackageModal = ({ packageData, onClose }) => {
       navigate('/booking', { state: { packageData } });
       window.location.reload();
   };
-
   // Parse items and details if they're in string format
-  const items = typeof packageData.items === 'string' 
-      ? parseItems(packageData.items) 
-      : packageData.items;
+  const items = Array.isArray(packageData.items) 
+      ? packageData.items 
+      : (typeof packageData.items === 'string' ? parseItems(packageData.items) : []);
       
-  const details = typeof packageData.details === 'string'
-      ? parseDetails(packageData.details)
-      : packageData.details;
+  const details = Array.isArray(packageData.details)
+      ? packageData.details
+      : (typeof packageData.details === 'string' ? parseDetails(packageData.details) : []);
   
   // Get price from investedAmount or price field
   const price = packageData.investedAmount 
@@ -133,25 +149,31 @@ const PackageModal = ({ packageData, onClose }) => {
                           </div>
                       </div>
                   </div>
-                  
-                  <div className="modal-items">
+                    <div className="modal-items">
                       <h3><PackageIcon className="small-icon" /> Package Items</h3>
-                      <ul>
-                          {items.map((item, index) => (
-                              <li key={index}>
-                                  {item.name}: <span className="item-quantity">{item.quantity}</span>
-                              </li>
-                          ))}
-                      </ul>
+                      {items && items.length > 0 ? (
+                        <ul>
+                            {items.map((item, index) => (
+                                <li key={index}>
+                                    {item.itemType || item.name}: <span className="item-quantity">{item.quantity}</span>
+                                </li>
+                            ))}
+                        </ul>
+                      ) : (
+                        <p>No items specified in this package</p>
+                      )}
                   </div>
-                  
-                  <div className="modal-details">
+                    <div className="modal-details">
                       <h3><Info className="small-icon" /> Package Details</h3>
-                      <ul>
-                          {details.map((detail, index) => (
-                              <li key={index}>{detail}</li>
-                          ))}
-                      </ul>
+                      {details && details.length > 0 ? (
+                        <ul>
+                            {details.map((detail, index) => (
+                                <li key={index}>{detail}</li>
+                            ))}
+                        </ul>
+                      ) : (
+                        <p>No details specified in this package</p>
+                      )}
                   </div>
               </div>
               
@@ -213,9 +235,7 @@ const Packages = () => {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [error, setError] = useState(null);
-    const [selectedPackage, setSelectedPackage] = useState(null);
-
-    // Fetch packages data from backend
+    const [selectedPackage, setSelectedPackage] = useState(null);    // Fetch packages data from backend
     const fetchPackages = async () => {
         try {
             setLoading(true);
@@ -234,9 +254,12 @@ const Packages = () => {
                 name: pkg.packageName,
                 tier: pkg.packageTierName,
                 price: parseFloat(pkg.investedAmount || 0),
-                // Parse items and details only if needed in the listing view
+                // Parse items and details immediately to prevent undefined issues
+                items: pkg.items ? parseItems(pkg.items) : [],
+                details: pkg.details ? parseDetails(pkg.details) : []
             }));
             
+            console.log('Parsed items in first package:', transformedData[1]?.items);
             setPackages(transformedData);
             setError(null);
             console.log('Fetched packages:', transformedData);

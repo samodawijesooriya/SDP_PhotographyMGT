@@ -19,8 +19,7 @@ const ManageBookings = () => {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [bookingToDelete, setBookingToDelete] = useState(null);
     const [activeTab, setActiveTab] = useState('all'); // Added for tab functionality
-    
-    const [editFormData, setEditFormData] = useState({
+      const [editFormData, setEditFormData] = useState({
         fullName: '',
         email: '',
         billingMobile: '',
@@ -97,7 +96,7 @@ const ManageBookings = () => {
             setEditFormData(prev => ({
               ...prev,
               [name]: value,
-                totalAmount: selectedPackage.investedAmount || 0,
+                totalAmount: selectedPackage.investedAmount,
                 packageName: selectedPackage.packageName,
                 coverageHours: selectedPackage.coverageHours,
                 eventName: selectedPackage.eventName
@@ -118,8 +117,7 @@ const ManageBookings = () => {
     // Format date for the input field (YYYY-MM-DD)
     const formattedDate = booking.eventDate ? 
         new Date(booking.eventDate).toISOString().split('T')[0] : '';
-    
-    // Set the form data with the booking information
+      // Set the form data with the booking information
     setEditFormData({
         fullName: booking.fullName || '',
         email: booking.email || '',
@@ -128,7 +126,7 @@ const ManageBookings = () => {
         eventDate: formattedDate,
         eventTime: booking.eventTime || '',
         venue: booking.venue || '',
-        totalAmount: booking.totalAmount || 0,
+        totalAmount: booking.investedAmount || booking.totalAmount || 0,
         paidAmount: booking.paidAmount || 0,
         bookingStatus: booking.bookingStatus || 'Pending',
         bookingType: booking.bookingType || 'Pencil',
@@ -138,26 +136,26 @@ const ManageBookings = () => {
     
     setSelectedBooking(booking);
     setIsEditModalOpen(true);
-   };
-
-   const handleEditSubmit = async (e) => {
+   };   const handleEditSubmit = async (e) => {
         e.preventDefault();
         
         try {
             const bookingData = {
                 ...editFormData,
-                // Ensure numeric values are correctly formatted
                 totalAmount: parseFloat(editFormData.totalAmount),
                 paidAmount: parseFloat(editFormData.paidAmount)
             };
             
-            // Check if we're editing or adding a new booking
+            // Check if we're editing or adding a new booking            
             if (selectedBooking) {
                 // Editing existing booking
+                console.log('Sending booking data:', bookingData);
                 await axios.put(`${url}/api/bookings/${selectedBooking.bookingId}`, bookingData);
+                console.log('Booking updated:', bookingData);
                 showSuccessAlert(`Booking for "${bookingData.fullName}" updated successfully!`, 'update');
             } else {
                 // Adding new booking
+                console.log('Sending new booking data:', bookingData);
                 await axios.post(`${url}/api/bookings`, bookingData);
                 showSuccessAlert(`Booking for "${bookingData.fullName}" created successfully!`, 'success');
             }
@@ -685,14 +683,13 @@ const ManageBookings = () => {
                             </div>
                             
                             <div className="booking-detail-section">
-                                <h3><CreditCard size={16} /> Booking Details</h3>
-                                <div className="form-group">
+                                <h3><CreditCard size={16} /> Booking Details</h3>                                <div className="form-group">
                                     <label htmlFor="totalAmount">Total Amount (LKR)</label>
                                     <input 
                                         type="number" 
                                         id="totalAmount" 
                                         name="totalAmount"
-                                        value={selectedBooking.investedAmount}
+                                        value={editFormData.totalAmount}
                                         disabled
                                         min="0"
                                         step="0.01"

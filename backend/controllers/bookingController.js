@@ -614,6 +614,7 @@ const createPendingBooking = async (req, res) => {
       const existingCustomer = await queryDatabase(checkExistingCustomerQuery, [email]);
 
       let newCustomerId;
+      let paymentStatus = 'Pending';
 
       if (existingCustomer && existingCustomer.length > 0) {
         // Use existing customer's ID
@@ -643,6 +644,7 @@ const createPendingBooking = async (req, res) => {
   
       // Check if the credit card details are provided
       if (paymentMethod === 'creditCard' && cardNumber && cardholderName && expiryDate && cvv) {
+        paymentStatus = 'Completed';
         const lastCreditCardQuery = 'SELECT creditCardId FROM creditCard ORDER BY creditCardId DESC LIMIT 1';
         const lastCreditCard = await queryDatabase(lastCreditCardQuery);
         newCreditCardId = lastCreditCard.length > 0 ? lastCreditCard[0].creditCardId + 1 : 1;
@@ -657,6 +659,7 @@ const createPendingBooking = async (req, res) => {
     
       // Check if the bank deposit details are provided
       if (paymentMethod === 'bankTransfer' && bankReceiptRef) {
+        paymentStatus = 'Pending';
         const lastDepositQuery = 'SELECT bankDepositId FROM bankdeposits ORDER BY bankDepositId DESC LIMIT 1';
         const lastDeposit = await queryDatabase(lastDepositQuery);
         newDepositId = lastDeposit.length > 0 ? lastDeposit[0].bankDepositId + 1 : 1;
@@ -700,7 +703,7 @@ const createPendingBooking = async (req, res) => {
         paymentMethod, 
         paymentMethod === 'bankTransfer' ? newDepositId : null, 
         paymentMethod === 'creditCard' ? newCreditCardId : null, 
-        bookingStatus
+        paymentStatus
       ]);
       
       if (!paymentResult || !paymentResult.affectedRows) {

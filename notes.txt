@@ -22,4 +22,10 @@ email should be unique for every user(needed to check that in the booking)
 
 in the booking it should show default(email)
 
+needed to reminder user to pay the pending booking balance amount
+
+reports
+
+cancel booking
+
 more notes here....
