@@ -9,6 +9,7 @@ import axios from 'axios';
 import { StoreContext } from '../../context/StoreContext';
 import CustomerManagement from './Customers/CustomerManagement';
 import Payments from './Payments/Payments';
+import Reports from './Reports/Reports';
 import HomeUi from './Home/Home';
 import { useLocation } from 'react-router-dom';
 
@@ -231,6 +232,12 @@ const AdminDashboard = () => {
             <div className="section-container">
               <h2>Payments</h2>
               <Payments />
+            </div>
+          )}
+          {activeSection === 'reports' && (
+            <div className="section-container">
+              <h2>Reports</h2>
+              <Reports />
             </div>
           )}
         </main>

@@ -2,9 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { StoreContext } from '../../../context/StoreContext';
 import axios from 'axios';
 import './Payments.css';
-import { Eye, Check, X, Download, RefreshCw, Filter, Search, DollarSign, AlertTriangle } from 'lucide-react';
-import ReceiptUpload from '../../../components/ReceiptUpload/ReceiptUpload';
-import '../../../components/ReceiptUpload/ReceiptUpload.css';
+import { Eye, Edit, Trash2, Download,  Search,  AlertTriangle, X, DollarSign } from 'lucide-react';
 
 const Payments = () => {
   const { url } = useContext(StoreContext);
@@ -16,8 +14,8 @@ const Payments = () => {
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [isConfirming, setIsConfirming] = useState(false);
-
+  const [editPaymentModal, setEditPaymentModal] = useState(false);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
 
   // Fetch all payments
   const fetchPayments = async () => {
@@ -38,6 +36,7 @@ const Payments = () => {
       setIsLoading(false);
     }
   };
+
   // Handle tab changes
   useEffect(() => {
     const fetchTabData = async () => {
@@ -86,45 +85,75 @@ const Payments = () => {
   const formatCurrency = (amount) => {
     return `LKR ${parseFloat(amount).toLocaleString()}`;
   };
-  // Handle payment verification
-  const handleVerifyPayment = async (paymentId, isApproved) => {
-    try {
-      setIsConfirming(true);
-      
-      const response = await axios.post(
-        `${url}/api/payments/verify/${paymentId}`,
-        { status: isApproved ? 'confirmed' : 'rejected' },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
-      
-      // Update the payment status in the frontend
-      setPayments(payments.map(payment => 
-        payment.paymentId === paymentId 
-          ? { ...payment, status: isApproved ? 'confirmed' : 'rejected' } 
-          : payment
-      ));
-      
-      // Close the modal
-      setViewReceiptModal(false);
-      setSelectedPayment(null);
-      
-    } catch (err) {
-      console.error('Error verifying payment:', err);
-      setError('Failed to verify payment. Please try again.');
-    } finally {
-      setIsConfirming(false);
-    }
-  };
 
   // View payment receipt
   const viewReceipt = (payment) => {
     setSelectedPayment(payment);
     setViewReceiptModal(true);
+  };
+
+  // Edit payment
+  const editPayment = (payment) => {
+    setSelectedPayment(payment);
+    setEditPaymentModal(true);
+  };
+
+  // Delete payment
+  const openDeleteConfirm = (payment) => {
+    setSelectedPayment(payment);
+    setDeleteConfirmModal(true);
+  };
+
+  // Handle edit payment form submission
+  const handleEditPayment = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.put(`${url}/api/payments/${selectedPayment.paymentId}`, selectedPayment, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      // Update payments list
+      setPayments(payments.map(payment => 
+        payment.paymentId === selectedPayment.paymentId ? response.data : payment
+      ));
+      
+      setEditPaymentModal(false);
+      // Optional: Add success toast/notification
+    } catch (err) {
+      console.error('Error updating payment:', err);
+      // Handle error (show error message)
+    }
+  };
+
+  // Handle delete payment
+  const handleDeletePayment = async () => {
+    try {
+      await axios.delete(`${url}/api/payments/${selectedPayment.paymentId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      // Remove deleted payment from state
+      setPayments(payments.filter(payment => payment.paymentId !== selectedPayment.paymentId));
+      
+      setDeleteConfirmModal(false);
+      // Optional: Add success toast/notification
+    } catch (err) {
+      console.error('Error deleting payment:', err);
+      // Handle error (show error message)
+    }
+  };
+
+  // Handle input change in edit form
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setSelectedPayment({
+      ...selectedPayment,
+      [name]: value
+    });
   };
 
   // Filter payments based on active tab and search query
@@ -153,7 +182,7 @@ const Payments = () => {
   const renderStatus = (status) => {
     let statusClass = '';
     
-    switch(status.toLowerCase()) {
+    switch(status?.toLowerCase()) {
       case 'confirmed':
         statusClass = 'status-confirmed';
         break;
@@ -200,18 +229,7 @@ const Payments = () => {
           >
             All Payments
           </button>
-          <button 
-            className={`tab-btn ${activeTab === 'pending' ? 'active' : ''}`}
-            onClick={() => setActiveTab('pending')}
-          >
-            Pending Verification
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'confirmed' ? 'active' : ''}`}
-            onClick={() => setActiveTab('confirmed')}
-          >
-            Confirmed
-          </button>
+          
           <button 
             className={`tab-btn ${activeTab === 'advances' ? 'active' : ''}`}
             onClick={() => setActiveTab('advances')}
@@ -236,11 +254,6 @@ const Payments = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          
-          <button className="refresh-btn" onClick={fetchPayments}>
-            <RefreshCw size={16} />
-            Refresh
-          </button>
         </div>
       </div>
       
@@ -281,7 +294,7 @@ const Payments = () => {
                   <td>{payment.fullName}</td>
                   <td>{payment.bookingId}</td>
                   <td>{formatDate(payment.paymentDate)}</td>
-                  <td className="amount-cell">{formatCurrency(payment.amount)}</td>
+                  <td className="amount-cell">{formatCurrency(payment.paymentAmount)}</td>
                   <td>{payment.paymentMethod}</td>
                   <td>{renderStatus(payment.paymentStatus)}</td>
                   <td className="actions-cell">
@@ -294,24 +307,20 @@ const Payments = () => {
                         <Eye size={16} />
                       </button>
                     )}
-                    {payment.paymentStatus === 'pending' && (
-                      <>
-                        <button 
-                          className="approve-btn"
-                          onClick={() => handleVerifyPayment(payment.paymentId, true)}
-                          title="Approve Payment"
-                        >
-                          <Check size={16} />
-                        </button>
-                        <button 
-                          className="reject-btn"
-                          onClick={() => handleVerifyPayment(payment.paymentId, false)}
-                          title="Reject Payment"
-                        >
-                          <X size={16} />
-                        </button>
-                      </>
-                    )}
+                    <button 
+                      className="edit-btn"
+                      onClick={() => editPayment(payment)}
+                      title="Edit Payment"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button 
+                      className="delete-btn"
+                      onClick={() => openDeleteConfirm(payment)}
+                      title="Delete Payment"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -357,28 +366,6 @@ const Payments = () => {
               </div>
             </div>
             
-            {selectedPayment.status === 'pending' && (
-              <div className="verification-actions">
-                <p className="verification-note">Please verify this bank transfer receipt before confirming the payment.</p>
-                <div className="action-buttons">
-                  <button 
-                    className="confirm-btn"
-                    onClick={() => handleVerifyPayment(selectedPayment.paymentId, true)}
-                    disabled={isConfirming}
-                  >
-                    {isConfirming ? 'Processing...' : 'Confirm Payment'}
-                  </button>
-                  <button 
-                    className="reject-btn full-width"
-                    onClick={() => handleVerifyPayment(selectedPayment.paymentId, false)}
-                    disabled={isConfirming}
-                  >
-                    {isConfirming ? 'Processing...' : 'Reject Payment'}
-                  </button>
-                </div>
-              </div>
-            )}
-            
             <div className="modal-footer">
               {selectedPayment.receiptUrl && (
                 <a 
@@ -400,35 +387,177 @@ const Payments = () => {
         </div>
       )}
       
+      {/* Edit Payment Modal */}
+      {editPaymentModal && selectedPayment && (
+        <div className="modal-overlay">
+          <div className="edit-payment-modal">
+            <div className="modal-header">
+              <h4>Edit Payment</h4>
+              <button className="close-btn" onClick={() => setEditPaymentModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditPayment} className="edit-payment-form">
+              <div className="form-group">
+                <label htmlFor="fullName">Customer Name</label>
+                <input
+                  type="text"
+                  id="fullName"
+                  name="fullName"
+                  value={selectedPayment.fullName || ''}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="amount">Amount (LKR)</label>
+                <input
+                  type="number"
+                  id="amount"
+                  name="amount"
+                  value={selectedPayment.paymentAmount || ''}
+                  onChange={handleInputChange}
+                  step="0.01"
+                  min="0"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="paymentDate">Payment Date</label>
+                <input
+                  type="datetime-local"
+                  id="paymentDate"
+                  name="paymentDate"
+                  value={selectedPayment.paymentDate ? new Date(selectedPayment.paymentDate).toISOString().slice(0, 16) : ''}
+                  onChange={handleInputChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="paymentMethod">Payment Method</label>
+                <select
+                  id="paymentMethod"
+                  name="paymentMethod"
+                  value={selectedPayment.paymentMethod || ''}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="">Select Payment Method</option>
+                  <option value="creditCard">Credit Card</option>
+                  <option value="bankTransfer">Bank Transfer</option>
+                  <option value="cash">Cash</option>
+                  <option value="paypal">PayPal</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="paymentStatus">Payment Status</label>
+                <select
+                  id="paymentStatus"
+                  name="paymentStatus"
+                  value={selectedPayment.paymentStatus || ''}
+                  onChange={handleInputChange}
+                  required
+                >
+                  <option value="">Select Status</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Confirmed">Confirmed</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="referenceNumber">Reference Number</label>
+                <input
+                  type="text"
+                  id="referenceNumber"
+                  name="referenceNumber"
+                  value={selectedPayment.referenceNumber || ''}
+                  onChange={handleInputChange}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    name="isAdvancePayment"
+                    checked={selectedPayment.isAdvancePayment || false}
+                    onChange={(e) => setSelectedPayment({
+                      ...selectedPayment,
+                      isAdvancePayment: e.target.checked
+                    })}
+                  />
+                  Is Advance Payment
+                </label>
+              </div>
+              
+              <div className="modal-footer">
+                <button type="button" className="cancel-btn" onClick={() => setEditPaymentModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="save-btn">
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal && selectedPayment && (
+        <div className="modal-overlay">
+          <div className="confirm-modal">
+            <div className="modal-header">
+              <h4>Confirm Delete</h4>
+              <button className="close-btn" onClick={() => setDeleteConfirmModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="confirm-content">
+              <AlertTriangle size={48} className="warning-icon" />
+              <p>Are you sure you want to delete this payment?</p>
+              <p className="payment-info">
+                <strong>Customer:</strong> {selectedPayment.fullName}<br />
+                <strong>Amount:</strong> {formatCurrency(selectedPayment.paymentAmount)}
+              </p>
+              <p className="warning-text">This action cannot be undone.</p>
+            </div>
+            
+            <div className="modal-footer">
+              <button className="cancel-btn" onClick={() => setDeleteConfirmModal(false)}>
+                Cancel
+              </button>
+              <button className="delete-confirm-btn" onClick={handleDeletePayment}>
+                Delete Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Dashboard Summary Cards */}
       <div className="payment-summary-cards">
         <div className="summary-card">
           <div className="card-icon total-icon">
-            <DollarSign size={24} />
+            
           </div>
           <div className="card-content">
             <h3>Total Payments</h3>
             <p className="amount">{formatCurrency(payments.reduce((sum, payment) => 
-              payment.type === 'payment' ? sum + parseFloat(payment.amount) : sum, 0))}</p>
+              payment.paymentStatus === 'Confirmed' ? sum + parseFloat(payment.paymentAmount) : sum, 0))}</p>
             <p className="count">{payments.filter(p => p.type === 'payment').length} payments</p>
           </div>
         </div>
         
         <div className="summary-card">
-          <div className="card-icon pending-icon">
-            <AlertTriangle size={24} />
-          </div>
-          <div className="card-content">
-            <h3>Pending Verification</h3>
-            <p className="amount">{formatCurrency(payments.reduce((sum, payment) => 
-              payment.status === 'pending' ? sum + parseFloat(payment.amount) : sum, 0))}</p>
-            <p className="count">{payments.filter(p => p.status === 'pending').length} payments</p>
-          </div>
-        </div>
-        
-        <div className="summary-card">
           <div className="card-icon advance-icon">
-            <DollarSign size={24} />
           </div>
           <div className="card-content">
             <h3>Advance Payments</h3>
@@ -440,12 +569,11 @@ const Payments = () => {
         
         <div className="summary-card">
           <div className="card-icon refund-icon">
-            <RefreshCw size={24} />
           </div>
           <div className="card-content">
             <h3>Refunds</h3>
             <p className="amount">{formatCurrency(payments.reduce((sum, payment) => 
-              payment.type === 'refund' ? sum + parseFloat(payment.amount) : sum, 0))}</p>
+              payment.paymentStatus === 'refund' ? sum + parseFloat(payment.amount) : sum, 0))}</p>
             <p className="count">{payments.filter(p => p.type === 'refund').length} refunds</p>
           </div>
         </div>
