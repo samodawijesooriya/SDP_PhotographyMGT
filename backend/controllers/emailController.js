@@ -145,5 +145,4 @@ const sendpencilConfirmationEmail = async (req, res) => {
   } 
 };
 
-
-export  {sendConfirmationEmail, sendpencilConfirmationEmail};
+export { sendConfirmationEmail, sendpencilConfirmationEmail };

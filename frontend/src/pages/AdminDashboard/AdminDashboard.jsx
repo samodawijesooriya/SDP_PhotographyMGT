@@ -8,6 +8,7 @@ import Events from './Events/Events';
 import axios from 'axios';
 import { StoreContext } from '../../context/StoreContext';
 import CustomerManagement from './Customers/CustomerManagement';
+import Payments from './Payments/Payments';
 import HomeUi from './Home/Home';
 import { useLocation } from 'react-router-dom';
 
@@ -224,6 +225,12 @@ const AdminDashboard = () => {
             <div className="section-container">
               <h2>Event Calendar</h2>
               <EventCalendar />
+            </div>
+          )}
+          {activeSection === 'payments' && (
+            <div className="section-container">
+              <h2>Payments</h2>
+              <Payments />
             </div>
           )}
         </main>

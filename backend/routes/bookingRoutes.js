@@ -10,7 +10,8 @@ import {
     getBookingsByDate,
     createPendingBooking,
     getBookingDates,
-    getBookingByUserId
+    getBookingByUserId,
+    cancelBooking
 } from '../controllers/bookingController.js';
 
 import cleanupPencilBookings from '../controllers/cleanup-bookings.js';
@@ -42,6 +43,9 @@ bookingRouter.get('/date/:date', getBookingsByDate);
 
 // Get dates of the bookings
 bookingRouter.get('/dates', getBookingDates);
+
+// Cancel a booking (update status to 'Cancelled')
+bookingRouter.post('/cancel/:id', cancelBooking);
 
 bookingRouter.post('/cleanup', async (req, res) => {
     try {

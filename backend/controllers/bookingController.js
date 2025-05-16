@@ -911,14 +911,48 @@ const getBookingDates = async (req, res) => {
   }
 }
 
-  export {
-    getAllBookings,
-    deleteBooking,
-    updateBooking,
-    createBooking,
-    getCalendarBookings,
-    getBookingsByDate,
-    createPendingBooking,
-    getBookingDates,
-    getBookingByUserId
-  };
+// Cancel a booking (changes status to 'Cancelled' without deleting)
+const cancelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if the booking exists
+    const checkQuery = 'SELECT * FROM booking WHERE bookingId = ?';
+    const existingBooking = await queryDatabase(checkQuery, [id]);
+    
+    if (existingBooking.length === 0) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+    
+    // Update booking status to 'Cancelled'
+    const updateQuery = 'UPDATE booking SET bookingStatus = ? WHERE bookingId = ?';
+    
+    await queryDatabase(updateQuery, ['Cancelled', id]);
+    
+    res.json({
+      message: 'Booking cancelled successfully',
+      bookingId: id,
+      status: 'Cancelled'
+    });
+    
+  } catch (error) {
+    console.error('Error in cancelBooking:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+    });
+  }
+};
+
+export {
+  getAllBookings,
+  deleteBooking,
+  updateBooking,
+  createBooking,
+  getCalendarBookings,
+  getBookingsByDate,
+  createPendingBooking,
+  getBookingDates,
+  getBookingByUserId,
+  cancelBooking
+};

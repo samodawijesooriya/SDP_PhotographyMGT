@@ -429,6 +429,7 @@ const dailyBookingSummary = (data) => {
   };
 };
 
+
 export default {
   bookingConfirmation,
   pencilBookingConfirmation,

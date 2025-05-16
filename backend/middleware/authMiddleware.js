@@ -22,7 +22,7 @@ const verifyToken = (req, res, next) => {
 const requireAdmin = (req, res, next) => {
     this.verifyToken(req, res, () => {
         // Assuming the user object has a role field
-        if (!req.user || req.user.role !== 'admin') {
+        if (!req.user || req.user.role !== 'photographer') {
             return res.status(403).json({ message: 'Admin access required' });
         }
         next();

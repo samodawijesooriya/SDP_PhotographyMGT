@@ -21,10 +21,15 @@ const Events = () => {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
   const [referenceNumber, setReferenceNumber] = useState('');
+  // Cancel booking states
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelSuccess, setCancelSuccess] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [bookingToCancel, setBookingToCancel] = useState(null);
 
   // get the userid from local storage]
   // userData	{"userID":7,"username":"Customer02","email":"customer02@gmail.com","role":"customer"}
-  const userData = JSON.parse(localStorage.getItem('userData'));;
+  const userData = JSON.parse(localStorage.getItem('userData'));
 
   const fetchUserBookings = async () => {
     try {
@@ -142,6 +147,62 @@ const Events = () => {
     setReceiptFile(null);
     setPaymentError(null);
     setPaymentSuccess(false);
+    setCancelSuccess(false);
+  };
+
+  // Handle showing cancel confirmation
+  const handleCancelBooking = (booking) => {
+    setBookingToCancel(booking);
+    setConfirmCancel(true);
+  };
+
+  // Confirm cancellation
+  const confirmCancelBooking = async () => {
+    if (!bookingToCancel) return;
+    
+    try {
+      setIsCancelling(true);
+      
+      const response = await axios.post(
+        `${url}/api/bookings/cancel/${bookingToCancel.bookingId}`,
+        {},
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      
+      if (response.status === 200) {
+        // Update the booking status in the local state
+        setBookings(bookings.map(b => 
+          b.bookingId === bookingToCancel.bookingId 
+            ? { ...b, bookingStatus: 'Cancelled' } 
+            : b
+        ));
+        
+        setCancelSuccess(true);
+        setConfirmCancel(false);
+        
+        // If canceling from detail view, update the selected booking
+        if (selectedBooking && selectedBooking.bookingId === bookingToCancel.bookingId) {
+          setSelectedBooking({...selectedBooking, bookingStatus: 'Cancelled'});
+        }
+      }
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      setError('Failed to cancel booking. Please try again.');
+    } finally {
+      setIsCancelling(false);
+      setBookingToCancel(null);
+    }
+  };
+  
+  // Cancel the cancellation
+  const cancelCancellation = () => {
+    setConfirmCancel(false);
+    setBookingToCancel(null);
   };
 
   // Handle file upload for bank transfer
@@ -283,15 +344,52 @@ const Events = () => {
                   <span className="status-label">Booking:</span>
                   {renderStatus(booking.bookingStatus)}
                 </div>
-              </div>              <div className="booking-actions">
+              </div>              
+              <div className="booking-actions">
                 <button 
                   className="view-details-btn"
                   onClick={() => viewBookingDetails(booking)}
                 >
                   View Booking Details
-                </button>
+                </button>                
                 {booking.bookingStatus !== 'Cancelled' && booking.bookingStatus !== 'Completed' && (
-                  <button className="cancel-booking-btn">Cancel Booking</button>
+                  <button 
+                    className="cancel-booking-btn"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (window.confirm("Are you sure you want to cancel this booking? This action cannot be undone.")) {
+                        axios.post(
+                          `${url}/api/bookings/cancel/${booking.bookingId}`,
+                          {},
+                          {
+                            headers: {
+                              'Content-Type': 'application/json',
+                              'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            }
+                          }
+                        )
+                        .then(response => {
+                          if (response.status === 200) {
+                            // Update booking status in the local state
+                            setBookings(prevBookings => 
+                              prevBookings.map(b => 
+                                b.bookingId === booking.bookingId 
+                                  ? { ...b, bookingStatus: 'Cancelled' } 
+                                  : b
+                              )
+                            );
+                            alert('Booking has been cancelled successfully.');
+                          }
+                        })
+                        .catch(error => {
+                          console.error('Error cancelling booking:', error);
+                          alert('Failed to cancel booking. Please try again.');
+                        });
+                      }
+                    }}
+                  >
+                    Cancel Booking
+                  </button>
                 )}
               </div>
             </div>
@@ -331,12 +429,19 @@ const Events = () => {
                 <div className="step-icon">{selectedBooking.bookingStatus !== 'Pending' ? <Check size={20} /> : 2}</div>
                 <div className="step-label">Confirmed</div>
               </div>
-              <div className="progress-connector"></div>
+              <div className={`progress-connector ${selectedBooking.bookingStatus === 'Completed' ? 'completed' : 'pending'}`}></div>
               
-              <div className={`progress-step ${selectedBooking.bookingStatus === 'Completed' ? 'completed' : 'pending'}`}>
-                <div className="step-icon">{selectedBooking.bookingStatus === 'Completed' ? <Check size={20} /> : 3}</div>
-                <div className="step-label">Completed</div>
-              </div>
+              {selectedBooking.bookingStatus === 'Cancelled' ? (
+                <div className="progress-step cancelled">
+                  <div className="step-icon"><X size={20} /></div>
+                  <div className="step-label">Cancelled</div>
+                </div>
+              ) : (
+                <div className={`progress-step ${selectedBooking.bookingStatus === 'Completed' ? 'completed' : 'pending'}`}>
+                  <div className="step-icon">{selectedBooking.bookingStatus === 'Completed' ? <Check size={20} /> : 3}</div>
+                  <div className="step-label">Completed</div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -421,9 +526,13 @@ const Events = () => {
                       className="progress-bar" 
                       style={{ width: `${calculatePaymentProgress(selectedBooking.investedAmount, selectedBooking.balanceAmount)}%` }}
                     ></div>
-                  </div>
-                </div>
+                  </div>                </div>
               </div>
+                {selectedBooking.bookingStatus === 'Cancelled' && (
+                <div className="refund-notification">
+                  Please note: If a booking is canceled, the advanced payment of 20,000 LKR will not be returned. This is according to our cancelation policy.
+                </div>
+              )}
             </div>            
             
             {parseFloat(selectedBooking.balanceAmount) > 0 && !paymentSuccess && (
@@ -616,6 +725,51 @@ const Events = () => {
                     className="back-to-details-btn"
                     onClick={() => {
                       setPaymentSuccess(false);
+                      fetchUserBookings();
+                    }}
+                  >
+                    Back to Booking Details
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {confirmCancel && (
+              <div className="detail-section cancel-confirmation-section">
+                <div className="cancel-confirmation-message">
+                  <div className="confirmation-icon">⚠️</div>
+                  <h3>Are you sure you want to cancel this booking?</h3>
+                  <p>This action cannot be undone.</p>
+                  <div className="confirmation-actions">                    
+                    <button 
+                      className="confirm-cancel-btn"
+                      onClick={confirmCancelBooking}
+                      disabled={isCancelling}
+                    >
+                      {isCancelling ? 'Cancelling...' : 'Yes, Cancel Booking'}
+                    </button>
+                    <button 
+                      className="cancel-cancel-btn"
+                      onClick={cancelCancellation}
+                      disabled={isCancelling}
+                    >
+                      No, Go Back
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {cancelSuccess && (
+              <div className="detail-section cancel-success-section">
+                <div className="cancel-success-message">
+                  <div className="success-icon">✓</div>
+                  <h3>Booking Cancelled Successfully!</h3>
+                  <p>Your booking has been cancelled.</p>
+                  <button 
+                    className="back-to-details-btn"
+                    onClick={() => {
+                      setCancelSuccess(false);
                       fetchUserBookings();
                     }}
                   >
