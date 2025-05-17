@@ -263,7 +263,7 @@ const Payments = () => {
           <p>Loading payment data...</p>
         </div>
       ) : error ? (
-        <div className="error-message">
+        <div className="error-message-payments">
           <AlertTriangle size={24} />
           <p>{error}</p>
           <button onClick={fetchPayments}>Try Again</button>

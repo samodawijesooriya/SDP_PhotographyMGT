@@ -22,6 +22,7 @@ const drive = google.drive({
 });
 
 driveRouter.get('/', async (req, res) => {
+
     try {
         // Query for folders in the specified parent folder
         const rootFolderId = process.env.ROOT_FOLDER_ID;
@@ -48,14 +49,25 @@ driveRouter.get('/:albumId/thumbnail', async (req, res) => {
       fields: 'files(id, name, thumbnailLink)',
       orderBy: 'createdTime',
       pageSize: 1
-    });    if (response.data.files.length > 0) {      const firstImage = response.data.files[0];
-      // If thumbnailLink is missing, construct a full URL to our own image endpoint
-      // Use absolute URL with the host/origin included
-      const thumbnailUrl = firstImage.thumbnailLink || 
-                          `${req.protocol}://${req.get('host')}/api/drive/images/${firstImage.id}`;
+    });
+    
+    if (response.data.files.length > 0) {
+      const firstImage = response.data.files[0];
+      
+      // If using a Google thumbnailLink, validate it first
+      if (firstImage.thumbnailLink) {
+        // Return the direct thumbnail URL from Google Drive
+        return res.json({
+          thumbnailUrl: firstImage.thumbnailLink
+        });
+      }
+      
+      // Fallback to our own API endpoint - this ensures we can serve the image properly
+      const imageUrl = `/api/drive/images/${firstImage.id}`;
+      const fullImageUrl = `${req.protocol}://${req.get('host')}${imageUrl}`;
       
       res.json({
-        thumbnailUrl: thumbnailUrl
+        thumbnailUrl: fullImageUrl 
       });
     } else {
       // No images in the album
@@ -103,12 +115,16 @@ driveRouter.get('/images/:imageId', async (req, res) => {
     
     // Set content type for the response
     res.setHeader('Content-Type', fileMetadata.data.mimeType);
-    
-    // Get the file content
+      // Get the file content
     const response = await drive.files.get({
       fileId: imageId,
       alt: 'media'
     }, { responseType: 'stream' });
+    
+    // Add CORS headers to allow cross-origin requests
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
     
     // Pipe the file stream to the response
     response.data

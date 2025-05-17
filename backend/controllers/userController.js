@@ -3,13 +3,15 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import validator from 'validator';
 import UserModel from '../models/userModel.js';
+import { sendVerificationEmail, sendAccountCreationEmail } from '../controllers/emailController.js';
 
 // create a tokem
 const createToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET || 'randomstring', { expiresIn: '1h' });
 };
 
-// register user
+// not needed right now
+
 const registerUser = async (req, res) => {
     const { username, email, password} = req.body;
     const role = 'customer';
@@ -39,7 +41,7 @@ const registerUser = async (req, res) => {
             // const hashedPassword = await bcrypt.hash(password, salt);
 
             // Generate new user ID
-            const sqlId = 'SELECT userID FROM user ORDER BY userID DESC LIMIT 1';
+            let sqlId = 'SELECT userID FROM user ORDER BY userID DESC LIMIT 1';
             db.query(sqlId, (err, result) => {
                 if (err) {
                     return res.json({ success: false, message: "An error occurred while generating a new ID" });
@@ -50,7 +52,7 @@ const registerUser = async (req, res) => {
                 }
                 
                 // Insert new user
-                const sqlInsert = 'INSERT INTO user (userID, username, email, password, role) VALUES (?, ?, ?, ?, ?)';
+                let sqlInsert = 'INSERT INTO user (userID, username, email, password, role) VALUES (?, ?, ?, ?, ?)';
                 db.query(sqlInsert, [newId, username, email, password, role], (err, user) => {
                     if (err) {
                         console.log(err);
@@ -78,7 +80,8 @@ const registerUser = async (req, res) => {
 };
 
 // login user
-const loginUser =async (req, res) => {
+
+const loginUser = async (req, res) => {
     const {username, password} = req.body;
     try {
         // Input validation
@@ -90,62 +93,111 @@ const loginUser =async (req, res) => {
         }
 
         // Find user in database
-        const sqlFind = 'SELECT * FROM user WHERE username = ?';
-        db.query(sqlFind, [username], async (err, results) => {
-            if (err) {
-                console.log(err);
-                return res.json({ 
-                    success: false, 
-                    message: "An error occurred while logging in" 
+        let sqlFind = 'SELECT * FROM user WHERE username = ?';
+        
+        // Using a promise to handle the database query properly
+        const findUser = () => {
+            return new Promise((resolve, reject) => {
+                db.query(sqlFind, [username], (err, results) => {
+                    if (err) {
+                        console.log(err);
+                        reject(err);
+                    } else {
+                        resolve(results);
+                    }
                 });
-            }
-
-            // Check if user exists
-            if (results.length === 0) {
-                return res.json({ 
-                    success: false, 
-                    message: "No username or password" 
-                });
-            }
-
-            const user = results[0];
-
-            // Compare passwords
-            // const match = await bcrypt.compare(password, user.password);
-            const match = password === user.password;
-            console.log("Provided Password:", password);
-            console.log("Stored Password Hash:", user.password);
-            console.log("Password Match:", match);
-            if (!match) {
-                return res.json({ 
-                    success: false, 
-                    message: "Invalid username or password" 
-                });
-            }
-
-            // Create token
-            const token = createToken(user.userID);
-
-            // Send successful response
-            res.json({
-                success: true,
-                token: token,
-                user: {
-                    userID: user.userID,
-                    username: user.username,
-                    email: user.email,
-                    role: user.role
-                }
             });
-        });
+        };
+        
+        const results = await findUser();
+        
+        // Check if user exists
+        if (results.length === 0) {
+            return res.json({ 
+                success: false, 
+                message: "No username or password" 
+            });
+        }
+
+        const user = results[0];
+
+        // Check password
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid credentials'
+            });
+        }
+
+        // Check if email is verified
+        if (!user.isEmailVerified) {
+            // Generate new OTP for verification
+            const otp = generateOTP();
+            const otpExpiry = new Date();
+            otpExpiry.setMinutes(otpExpiry.getMinutes() + 10);
+            
+            // Using a promise for the UPDATE query as well
+            const updateOTP = () => {
+                return new Promise((resolve, reject) => {
+                    const updateSql = 'UPDATE user SET verificationOTP = ?, verificationOTPExpiry = ? WHERE userId = ?';
+                    db.query(updateSql, [otp, otpExpiry, user.id], (err, results) => {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            resolve(results);
+                        }
+                    });
+                });
+            };
+            
+            try {
+                await updateOTP();
+                await sendVerificationEmail(user.email, otp);
+                
+                return res.status(200).json({
+                    success: true,
+                    emailVerificationRequired: true,
+                    email: user.email,
+                    message: 'Email verification required'
+                });
+            } catch (error) {
+                return res.status(500).json({
+                    success: false,
+                    message: 'Database error when updating OTP'
+                });
+            }
+        }
+
+        // Generate JWT token
+        const payload = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role
+        };
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' });
+
+        res.status(200).json({
+            success: true,
+            token,
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                name: user.name,
+                role: user.role
+            }
+        });      
     } catch (error) {
-        console.log(error);
-        res.json({ 
-            success: false, 
-            message: "An error occurred during login" 
+        console.error('Login error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error during login'
         });
     }
-}
+};
 
 const getAllUsers = async(req, res) => {
     try {
@@ -165,20 +217,25 @@ const getAllUsers = async(req, res) => {
     }
 }
 
+// Helper function to generate OTP
+const generateOTP = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+};
+
 // function to create a new user
 const createUser = async (req, res) => {
     // Validate request
     if (!req.body) {
-        res.status(400).send({
+        return res.status(400).send({
             message: "Content can not be empty!"
         });
     }
 
-    // Create a User
-    const { username, email, password} = req.body;
-    const role = req.body.role || 'customer';
-
     try {
+        // Create a User
+        const { username, password, email, name, address, mobile } = req.body;
+        const role = req.body.role || 'customer';
+        
         // Check if the user already exists
         const sqlCheck = 'SELECT * FROM user WHERE username = ?';
         db.query(sqlCheck, [username], async (err, results) => {
@@ -189,48 +246,251 @@ const createUser = async (req, res) => {
                 return res.json({ success: false, message: "User already exists" });
             }
 
-            // Validate email format and password strength
-            if (!validator.isEmail(email)) {
-                return res.json({ success: false, message: "Invalid email format" });
-            }
-            if (password.length < 8) {
-                return res.json({ success: false, message: "Password must be at least 8 characters" });
-            }
+            // Generate and hash the password
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(password, salt);
 
-            // // validate the mobile number
-            // if (!validator.isMobilePhone(mobile, 'en-IN')) {
-            //     return res.json({ success: false, message: "Invalid mobile number" });
-            // }
-
-            // cannot decrypt the password (ERROR: data and hash arguments required)
-            // Encrypt the password
-            // const salt = await bcrypt.genSalt(10);
-            // const hashedPassword = await bcrypt.hash(password, salt);
+            // Generate OTP
+            const otp = generateOTP();
+            const otpExpiry = new Date();
+            otpExpiry.setMinutes(otpExpiry.getMinutes() + 10); // OTP valid for 10 minutes
 
             // Generate new user ID
             const sqlId = 'SELECT COALESCE(MAX(userID), 0) AS maxId FROM user';
-            db.query(sqlId, (err, result) => {
+            db.query(sqlId, async (err, result) => {
                 if (err) {
                     return res.json({ success: false, message: "An error occurred while generating a new ID" });
                 }
-                const newId = result[0].maxId + 1;
+                const newUserId = result[0].maxId + 1;
                 
-                // Insert new user
-                const sqlInsert = 'INSERT INTO user (userID, username, email, password, role) VALUES (?, ?, ?, ?, ?, ?)';
-                db.query(sqlInsert, [newId, username, email, password, role], (err, user) => {
+                // Insert new user - fixed parameter count
+                const sqlInsert = 'INSERT INTO user (userID, username, email, password, role, isEmailVerified, verificationOTP, verificationOTPExpiry) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+                db.query(sqlInsert, [newUserId, username, email, hashedPassword, role, false, otp, otpExpiry], async (err, user) => {
+                    console.log("Data submited", otp);
+
                     if (err) {
                         return res.json({ success: false, message: "An error occurred while creating the user in create" });
                     }
 
-                    // Create a token
-                    const token = createToken(newId);
-                    res.json({ success: true, token: token });
+                    // Get new customer ID
+                    const customerIdQuery = 'SELECT COALESCE(MAX(customerId), 0) AS maxId FROM customers';
+                    db.query(customerIdQuery, async (err, custResult) => {
+                        if (err) {
+                            return res.json({ success: false, message: "An error occurred while generating a customer ID" });
+                        }
+                        
+                        const newCustomerId = custResult[0].maxId + 1;
+                        
+                        // Insert the Customer details - fixed parameter count
+                        const customerInsertQuery = 'INSERT INTO customers (customerId, fullName, billingAddress, billingMobile, userId) VALUES (?, ?, ?, ?, ?)';
+                        db.query(customerInsertQuery, [newCustomerId, name, address, mobile, newUserId], async (err, customer) => {
+                            if (err) {
+                                return res.json({ success: false, message: "An error occurred while creating the customer" });
+                            }
+
+                            try {
+                                // Send verification email
+                                await sendVerificationEmail(email, otp);
+                                
+                                // Create a token
+                                const token = createToken(newUserId);
+                                
+                                // Send the final response
+                                return res.status(201).json({
+                                    success: true,
+                                    message: 'User registered successfully. Please verify your email.',
+                                    token: token
+                                });
+                            } catch (emailError) {
+                                return res.status(500).json({
+                                    success: false,
+                                    message: 'Server error during email sending'
+                                });
+                            }
+                        });
+                    });
                 });
             });
         });
     } catch (error) {
         console.log(error);
-        res.json({ success: false, message: "An error occurred" });
+        return res.status(500).json({
+            success: false,
+            message: 'Server error during registration'
+        });
+    }
+};
+
+const verifyEmail = async (req, res) => {
+    try {
+        const {email, otp} = req.body;
+
+        // find the user with matching email
+        const sqlQuery = 'SELECT * FROM user WHERE email = ?';
+        db.query(sqlQuery, [email], (err, results) => {
+            if (err) {  
+                return res.status(500).json({
+                    success: false, 
+                    message: 'Database error when finding user'
+                });
+            }
+            
+            if (!results || results.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+
+            const user = results[0];
+
+            console.log("User found otp:", user);
+            // Update user status to verified
+
+            // Compare OTP with strict equality
+            if(user.verificationOTP !== otp) {
+                console.log("OTP mismatch. Expected:", user.verificationOTP, "Received:", otp);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid OTP'
+                });
+            }
+
+            // Check if OTP is expired
+            if(new Date() > new Date(user.verificationOTPExpiry)) {
+                console.log("OTP expired. Expiry:", user.verificationOTPExpiry, "Current:", new Date());
+                return res.status(400).json({
+                    success: false,
+                    message: 'Expired OTP'
+                });
+            }
+
+            // update the user verification status
+            const updateQuery = 'UPDATE user SET isEmailVerified = true, verificationOTP = NULL, verificationOTPExpiry = NULL WHERE userID = ?';
+            db.query(updateQuery, [user.userID], (err, updateResults) => {
+                if (err) {
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Database error when updating user'
+                    });
+                }
+
+                if (updateResults.affectedRows === 0) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'User not found'
+                    });
+                }
+
+                try {
+                    // Send welcome email after successful verification
+                    sendAccountCreationEmail(email, user.username);
+                } catch (emailError) {
+                    console.error('Error sending welcome email:', emailError);
+                    // Continue with the response even if email fails
+                }
+                
+                // Generate JWT token
+                const payload = {
+                    userID: user.userID,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role
+                };
+
+                const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' });
+
+                return res.status(200).json({
+                    success: true,
+                    message: 'Email verified successfully',
+                    token,
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email,
+                        name: user.name,
+                        role: user.role
+                    }
+                });
+            });
+        });
+    } catch (error) {
+        console.error('Email verification error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error during email verification'
+        }); 
+    }
+};
+
+// resend OTP
+const resendOTP = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        const sqlQuery = 'SELECT * FROM user WHERE email = ?';
+        db.query(sqlQuery, [email], async (err, results) => {
+            if (err) {
+                return res.status(500).json({
+                    success: false,
+                    message: 'Database error when finding user'
+                });
+            }
+            
+            if (!results || results.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+
+            const user = results[0];
+
+            // if email is already verified
+            if (user.isEmailVerified) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Email is already verified'
+                });
+            }
+
+            // Generate new OTP
+            const otp = generateOTP();
+            const otpExpiry = new Date();
+            otpExpiry.setMinutes(otpExpiry.getMinutes() + 10); // OTP valid for 10 minutes
+
+            // Use a different variable name for the update query
+            const updateQuery = 'UPDATE user SET verificationOTP = ?, verificationOTPExpiry = ? WHERE userId = ?';
+            db.query(updateQuery, [otp, otpExpiry, user.id], async (err, updateResults) => {
+                if (err) {
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Database error when updating OTP in'
+                    });
+                }
+                
+                try {
+                    // Send email with the new OTP
+                    await sendVerificationEmail(email, otp);
+                    
+                    return res.status(200).json({
+                        success: true,
+                        message: 'OTP resent successfully. Please check your email.'
+                    });
+                } catch (emailError) {
+                    return res.status(500).json({
+                        success: false,
+                        message: 'Error sending verification email'
+                    });
+                }
+            });
+        });
+    } catch (error) {
+        console.error('Resend OTP error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while resending OTP'
+        });
     }
 };
 
@@ -283,4 +543,4 @@ const updateUser = async (req, res) => {
     }
 }
 
-export { registerUser, loginUser, getAllUsers, createUser, deleteUser, updateUser };
+export { registerUser, loginUser, getAllUsers, createUser, deleteUser, updateUser, verifyEmail, resendOTP };

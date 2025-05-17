@@ -90,6 +90,20 @@
   .login-popup-inputs input::placeholder {
     color: #999;
   }
+
+  .input-error {
+    border: 1px solid #ff3838 !important;
+    background-color: #fff8f8;
+  }
+    .error-message login{
+    color: #ff3838;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+    display: block;
+    text-align: center;
+    padding: 6px;
+  }
   
   .login-popup-container button {
     width: 100%;
@@ -112,6 +126,103 @@
   .login-popup-container button:active {
     transform: translateY(0);
   }
+
+  .success-message {
+    background-color: #d4edda;
+    color: #155724;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .error-message.login {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .input-error {
+    border: 1px solid #dc3545 !important;
+    background-color: rgba(220, 53, 69, 0.05);
+  }
+
+  /* OTP input styling */
+  input[name="otp"] {
+    letter-spacing: 3px;
+    font-size: 1.2rem;
+    text-align: center;
+    font-weight: 600;
+  }
+  
+
+  /* Animation for success message */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .success-message {
+    animation: fadeIn 0.3s ease-in;
+  }
+
+  /* Spinner Overlay */
+.spinner-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  border-radius: inherit;
+}
+
+/* Spinner Animation */
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-left-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+
+.spinner-overlay p {
+  font-size: 14px;
+  color: #ffffff;
+  margin: 10px 0 0;
+}
+
+/* Spinner Animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Disabled button styles */
+button:disabled {
+  cursor: not-allowed !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .login-popup-container {
+    width: 90%;
+    max-width: 400px;
+  }
+}
   
   /* Responsive adjustments */
   @media (max-width: 480px) {
@@ -129,25 +240,6 @@
     }
   }
 
-
-  .error-message {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background-color: #FFDEBA;
-    color: #333;
-    padding: 1rem 2rem;
-    border-radius: 8px;
-    margin-top: 1rem;
-    animation: fadeIn 0.5s ease-in-out;
-  }
-  
-  .error-message p {
-    margin: 0;
-    line-height: 1.4;
-  }
-  
   /* Animation for the error message */
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-10px); }

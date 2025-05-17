@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { DollarSign, Users, Calendar, TrendingUp, Filter, Download, Eye } from 'lucide-react';
 import './Reports.css';
+import { utils as XLSXUtils, writeFile } from 'xlsx';
 
 const Reports = () => {
   // Sample data - in a real app, this would come from an API
@@ -42,6 +43,7 @@ const Reports = () => {
 
   const [dateRange, setDateRange] = useState('month');
   const [isLoading, setIsLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   // This is a placeholder for a real API call
   // In a real application, you would fetch this data from your backend
@@ -98,6 +100,86 @@ const Reports = () => {
     return <span className={`status-badge ${statusClass}`}>{status}</span>;
   };
 
+  // Export data to Excel
+  const exportToExcel = async () => {
+    try {
+      setExportLoading(true);
+      
+      // Create workbook and add worksheets
+      const workbook = XLSXUtils.book_new();
+      
+      // Format the payments data for Excel
+      const paymentsData = reportData.detailedPayments.map(payment => ({
+        'Payment ID': payment.id,
+        'Booking ID': payment.bookingId,
+        'Customer Name': payment.customerName,
+        'Date': new Date(payment.date).toLocaleDateString(),
+        'Amount': payment.amount,
+        'Payment Method': payment.method,
+        'Status': payment.status,
+        'Reference Number': payment.referenceNo
+      }));
+      
+      // Format the bookings data for Excel
+      const bookingsData = reportData.detailedBookings.map(booking => ({
+        'Booking ID': booking.id,
+        'Customer Name': booking.customerName,
+        'Email': booking.email,
+        'Phone': booking.phone,
+        'Booking Date': new Date(booking.date).toLocaleDateString(),
+        'Check-in': new Date(booking.checkIn).toLocaleDateString(),
+        'Check-out': new Date(booking.checkOut).toLocaleDateString(),
+        'Amount': booking.amount,
+        'Status': booking.status,
+        'Guests': booking.guests
+      }));
+      
+      // Add summary sheet
+      const summaryData = [
+        { 'Metric': 'Total Bookings', 'Value': reportData.totalBookings },
+        { 'Metric': 'Total Payments', 'Value': reportData.totalPayments },
+        { 'Metric': 'Total Customers', 'Value': reportData.totalCustomers },
+        { 'Metric': 'Total Revenue', 'Value': reportData.totalRevenue }
+      ];
+      
+      // Add monthly data
+      const monthlyData = reportData.monthlyData.map(month => ({
+        'Month': month.month,
+        'Bookings': month.bookings,
+        'Payments': month.payments,
+        'Revenue': month.revenue
+      }));
+      
+      // Create worksheets from the data
+      const paymentsSheet = XLSXUtils.json_to_sheet(paymentsData);
+      const bookingsSheet = XLSXUtils.json_to_sheet(bookingsData);
+      const summarySheet = XLSXUtils.json_to_sheet(summaryData);
+      const monthlySheet = XLSXUtils.json_to_sheet(monthlyData);
+      
+      // Add the worksheets to the workbook
+      XLSXUtils.book_append_sheet(workbook, summarySheet, 'Summary');
+      XLSXUtils.book_append_sheet(workbook, monthlySheet, 'Monthly Data');
+      XLSXUtils.book_append_sheet(workbook, bookingsSheet, 'Bookings');
+      XLSXUtils.book_append_sheet(workbook, paymentsSheet, 'Payments');
+      
+      // Get current date for filename
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
+      
+      // Create filename based on date range
+      let filename = `Business_Report_${dateRange}_${dateStr}.xlsx`;
+      
+      // Write the workbook and trigger download
+      writeFile(workbook, filename);
+      
+      setExportLoading(false);
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      setExportLoading(false);
+      // You could show an error notification here
+    }
+  };
+
   return (
     <div className="reports-container">
       <div className="reports-header">
@@ -132,9 +214,22 @@ const Reports = () => {
             This Year
           </button>
         </div>
-        <button className="export-btn">
-          <Download size={16} />
-          Export Report
+        <button 
+          className={`export-btn ${exportLoading ? 'loading' : ''}`} 
+          onClick={exportToExcel}
+          disabled={exportLoading}
+        >
+          {exportLoading ? (
+            <>
+              <div className="btn-spinner"></div>
+              Exporting...
+            </>
+          ) : (
+            <>
+              <Download size={16} />
+              Export to Excel
+            </>
+          )}
         </button>
       </div>
 

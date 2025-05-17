@@ -1,11 +1,11 @@
 import express, { Router } from 'express';
-import { registerUser, loginUser, getAllUsers, createUser, deleteUser, updateUser  } from '../controllers/userController.js';
+import { registerUser, loginUser, getAllUsers, createUser, deleteUser, updateUser, resendOTP, verifyEmail} from '../controllers/userController.js';
 
 // add router
 const userRouter = express.Router();
 
-// data of the user
-userRouter.post("/register", registerUser);
+// // data of the user
+// userRouter.post("/register", registerUser);
 
 // end point for login
 userRouter.post("/login", loginUser);
@@ -22,6 +22,10 @@ userRouter.delete('/:userId', deleteUser);
 //update user
 userRouter.put("/:id", updateUser);
 
+// verify user email with otp
+userRouter.post('/verify-email', verifyEmail);
 
+// Resend OTP
+userRouter.post('/resend-otp', resendOTP);
 
 export default userRouter;
