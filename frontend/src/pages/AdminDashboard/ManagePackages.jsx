@@ -3,10 +3,6 @@ import './ManagePackages.css';
 import { Trash2, Edit, Plus, X, Save, ArrowLeft, Eye, Database, Calendar, Box, FileText } from 'lucide-react';
 import axios from 'axios';
 import { StoreContext } from '../../context/StoreContext';
-import AddDetailModal from './AddDetailModal';
-import AddEventModal from './AddEventModal';
-import AddItemModal from './AddItemModal';
-
 const ManagePackages = () => {
     const { url } = useContext(StoreContext);
     const [packages, setPackages] = useState([]);
@@ -745,24 +741,7 @@ const ManagePackages = () => {
                         >
                             <Plus size={20} /> Add Package
                         </button>
-                        <button 
-                            className="add-event-btn"
-                            onClick={handleAddEvent}
-                        >
-                            <Plus size={20} /> Add Event
-                        </button>
-                        <button 
-                            className="add-item-btn"
-                            onClick={handleAddItem}
-                        >
-                            <Plus size={20} /> Add Item
-                        </button>
-                        <button 
-                            className="add-detail-btn"
-                            onClick={handleAddDetail}
-                        >
-                            <Plus size={20} /> Add Detail
-                        </button>
+                        
                     </div>
                 </div>
                 
@@ -887,22 +866,6 @@ const ManagePackages = () => {
                         </div>
                     </div>
                 )}
-
-                <AddEventModal 
-                    isOpen={eventModalOpen}
-                    onClose={() => setEventModalOpen(false)}
-                    onEventAdded={handleEventAdded}
-                />
-                <AddItemModal 
-                    isOpen={itemModalOpen}
-                    onClose={() => setItemModalOpen(false)}
-                    onItemAdded={handleItemAdded}
-                />
-                <AddDetailModal 
-                    isOpen={detailModalOpen}
-                    onClose={() => setDetailModalOpen(false)}
-                    onDetailAdded={handleDetailAdded}
-                />
             </div>
         );
     }

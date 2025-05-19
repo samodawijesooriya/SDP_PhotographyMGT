@@ -1,7 +1,8 @@
 .packages-management {
     padding: 2rem;
     max-width: 1400px;
-    margin: 0 auto;
+    margin-bottom: 0px;
+    background-color: #f8f9fa;
 }
 
 /* Search and Add Container */
@@ -245,16 +246,19 @@
 /* Form Styles */
 .form-header {
     display: flex;
-    align-items: center;
+    justify-content:left;
     gap: 1rem;
-    margin-bottom: 2rem;
+}
+
+.form-header h2 {
+    margin-top: 60px;
+    display: inline-block;
 }
 
 .back-btn {
-    margin-bottom: auto;
     display: flex;
+    margin-bottom: 1rem;
     align-items: center;
-    gap: 0.5rem;
     padding: 0.5rem 1rem;
     background-color: #6c757d;
     color: white;
@@ -732,70 +736,27 @@
     display: block;
 }
 
+/* View calculation button styles */
 .show-calculation-btn {
-    margin-top: 8px;
-    background-color: #f0f0f0;
-    border: 1px solid #ddd;
+    padding: 0.5rem 1rem;
+    background-color: #4caf9f;
+    color: white;
+    border: none;
     border-radius: 4px;
-    padding: 5px 10px;
-    font-size: 0.8rem;
     cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.show-calculation-btn:hover {
-    background-color: #e0e0e0;
-}
-
-/* Investment Breakdown Styles */
-.investment-breakdown {
-    margin-top: 10px;
-}
-
-.toggle-breakdown-btn {
-    background-color: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 5px 10px;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.toggle-breakdown-btn:hover {
-    background-color: #e0e0e0;
-}
-
-.breakdown-details {
-    margin-top: 10px;
-    padding: 10px;
-    background-color: #f9f9f9;
-    border: 1px solid #eee;
-    border-radius: 4px;
-}
-
-.breakdown-details h4 {
-    margin: 8px 0;
-    color: #555;
     font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.3s;
+    margin-top: 0.5rem;
 }
 
-.breakdown-details ul {
-    list-style-type: none;
-    padding-left: 0;
-    margin: 0 0 10px 0;
+.view-calculation-btn:hover {
+    background-color: #3d8b82;
 }
 
-.breakdown-details li {
-    font-size: 0.85rem;
-    padding: 3px 0;
-    color: #666;
-}
-
-.breakdown-total {
-    margin-top: 10px;
-    padding-top: 8px;
-    border-top: 1px solid #eee;
-    text-align: right;
-    font-size: 0.9rem;
+.view-calculation-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
 }

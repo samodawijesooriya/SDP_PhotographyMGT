@@ -575,4 +575,109 @@ const updateUser = async (req, res) => {
     }
 }
 
-export { registerUser, loginUser, getAllUsers, createUser, deleteUser, updateUser, verifyEmail, resendOTP, getUserById };
+// Utility function for querying the database with Promises
+const queryDatabase = (query, params) => {
+    return new Promise((resolve, reject) => {
+        db.query(query, params, (err, results) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        });
+    });
+};
+
+const updateUserProfile = async (req, res) => {
+    try {
+        const { userId, fullName, email, billingAddress, billingMobile } = req.body;
+
+        // check if the user exists
+        const sqlCheck = 'SELECT * FROM customers WHERE userId = ?';
+        const checkResults = await queryDatabase(sqlCheck, [userId]);
+        if (checkResults.length === 0) {
+            return res.status(404).send({
+                message: "User not found"
+            });
+        }
+
+        // Update user profile
+        const sqlUpdate = `
+            UPDATE customers 
+            SET fullName = ?, billingAddress = ?, billingMobile = ? 
+            WHERE userId = ?`;
+        const updateResults = await queryDatabase(sqlUpdate, [fullName, billingAddress, billingMobile, userId]);
+        if (updateResults.affectedRows === 0) {
+            return res.status(404).send({
+                message: "User not found"
+            });
+        }
+
+        // update the user email
+        const sqlUpdateEmail = `
+            UPDATE user 
+            SET email = ? 
+            WHERE userId = ?`;
+
+        const updateEmailResults = await queryDatabase(sqlUpdateEmail, [email, userId]);
+        if (updateEmailResults.affectedRows > 0) {
+            res.status(200).send({
+            message: "User profile updated successfully"
+        });
+        } else {
+            res.status(404).send({
+                message: "User not found"
+            });
+        }
+    } catch (error) {
+        console.error('Error updating user', error);
+        res.status(500).send({
+            message: "An error occurred while updating user profile."
+        });
+        
+    }
+}
+
+const changePassword = async (req, res) => {
+    try {
+        const { userId, newPassword, currentPassword } = req.body;
+
+        // Check if the user exists
+        const sqlCheck = 'SELECT * FROM user WHERE userId = ?';
+        const checkResults = await queryDatabase(sqlCheck, [userId]);
+        if (checkResults.length === 0) {
+            return res.status(404).send({
+                message: "User not found"
+            });
+        }
+        const user = checkResults[0];
+
+        // Check if the current password is correct
+        const isMatch = currentPassword === user.password; 
+        if (!isMatch) {
+            return res.status(400).send({
+                message: "Current password is incorrect"
+            });
+        }
+
+        // Update the password
+        const sqlUpdate = 'UPDATE user SET password = ? WHERE userId = ?';
+        const updateResults = await queryDatabase(sqlUpdate, [newPassword, userId]);
+        if (updateResults.affectedRows > 0) {
+            return res.status(200).send({
+                message: "Password changed successfully"
+            });
+        } else {
+            return res.status(404).send({
+                message: "User not found"
+            });
+        }
+    } catch (error) {
+        console.error('Error changing password', error);
+        res.status(500).send({
+            message: "An error occurred while changing password."
+        });
+    }
+}
+
+export { registerUser, loginUser, getAllUsers, createUser, deleteUser, updateUser, verifyEmail, resendOTP, getUserById, updateUserProfile, changePassword };

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import './AdminDashboard.css';
-import { Calendar, BookOpen, Package, Users, CalendarDays, Home, CreditCard, Image, Grid} from 'lucide-react';
+import { Calendar, BookOpen, Package, Users, CalendarDays, Home, CreditCard, Image, Grid, ToggleLeft} from 'lucide-react';
 import ManagePackages from './ManagePackages';
+import ManagePackageItems from './PackageItems/ManagePackageItems';
+import ManagePackageDetails from './PackageDetails/ManagePackageDetails';
 import ManageBookings from './ManageBookings/ManageBookings';
 import EventCalendar from './EventCalendar/EventCalendar';
 import Events from './Events/Events';
@@ -19,6 +21,7 @@ const AdminDashboard = () => {
   const [activeSection, setActiveSection] = useState('home');
   const [todayEventsCount, setTodayEventsCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [packageSubMenu, setPackageSubMenu] = useState('packages'); // For package section submenu
   const location = useLocation();
 
 
@@ -115,6 +118,18 @@ const AdminDashboard = () => {
 
           <button 
             className={`w-full text-left p-4 mb-2 rounded flex items-center space-x-4 ${
+              activeSection === 'StatusChanger' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
+            }`}
+            onClick={() => setActiveSection('StatusChanger')}
+          >
+            <div className="flex-shrink-0">
+              <ToggleLeft className="w-5 h-5" />
+            </div>
+            <span>Status Changer</span>
+          </button>
+
+          <button 
+            className={`w-full text-left p-4 mb-2 rounded flex items-center space-x-4 ${
               activeSection === 'users' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
             }`}
             onClick={() => setActiveSection('users')}
@@ -168,18 +183,6 @@ const AdminDashboard = () => {
 
           <button 
             className={`w-full text-left p-4 mb-2 rounded flex items-center space-x-4 ${
-              activeSection === 'gallery' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
-            }`}
-            onClick={() => setActiveSection('gallery')}
-          >
-            <div className="flex-shrink-0">
-              <Image className="w-5 h-5" />
-            </div>
-            <span>Gallery</span>
-          </button>
-
-          <button 
-            className={`w-full text-left p-4 mb-2 rounded flex items-center space-x-4 ${
               activeSection === 'reports' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
             }`}
             onClick={() => setActiveSection('reports')}
@@ -203,12 +206,40 @@ const AdminDashboard = () => {
               <h2>Manage Bookings</h2>
               <ManageBookings />
             </div>
-          )}
-          {activeSection === 'packages' && (
+          )}          {activeSection === 'packages' && (
             <div className="section-container">
-              <h2>Manage Packages</h2>  
-              <ManagePackages />
+              <h2>Manage Packages</h2>
+              <div className="package-submenu">
+                <button 
+                  className={`submenu-btn ${packageSubMenu === 'packages' ? 'active' : ''}`}
+                  onClick={() => setPackageSubMenu('packages')}
+                >
+                  Packages
+                </button>
+                <button 
+                  className={`submenu-btn ${packageSubMenu === 'items' ? 'active' : ''}`}
+                  onClick={() => setPackageSubMenu('items')}
+                >
+                  Package Items
+                </button>
+                <button 
+                  className={`submenu-btn ${packageSubMenu === 'details' ? 'active' : ''}`}
+                  onClick={() => setPackageSubMenu('details')}
+                >
+                  Package Details
+                </button>
+              </div>
+              
+              {packageSubMenu === 'packages' && <ManagePackages />}
+              {packageSubMenu === 'items' && <ManagePackageItems />}
+              {packageSubMenu === 'details' && <ManagePackageDetails />}
             </div>
+          )}
+          {activeSection === 'StatusChanger' && (
+            <div className="section-container">
+              <h2>Status Changer</h2>
+              <ManageBookings />
+            </div>  
           )}
           {activeSection === 'users' && (
             <div className="section-container">

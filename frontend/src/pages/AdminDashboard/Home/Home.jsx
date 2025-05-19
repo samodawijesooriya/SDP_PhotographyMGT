@@ -19,6 +19,14 @@ const AdminHome = () => {
   const [sumaryStats, setSummaryStats] = useState([]);
   const [upcomingBookings, setUpcomingBookings] = useState([]);
   const navigate = useNavigate();
+
+  const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('en-LK', {
+            style: 'currency',
+            currency: 'LKR',
+            minimumFractionDigits: 2
+        }).format(amount);
+    };
   
   const fetchBookingStats = async () => {
     try {
@@ -91,17 +99,12 @@ const AdminHome = () => {
       id: 4,
       title: 'Revenue',
       icon: <FaCreditCard className="dashboard-icon" />,
-      count: sumaryStats.totalRevenue || 0,
+      count: formatCurrency(sumaryStats.totalRevenue) || 0,
       description: 'This month',
       color: '#f72585'
     }
   ];
-  
-  const recentUploads = [
-    { id: 1, title: 'Wedding Collection', client: 'Thomas & Rebecca', count: 124, preview: 'https://via.placeholder.com/100x75' },
-    { id: 2, title: 'Corporate Event', client: 'Tech Summit 2025', count: 87, preview: 'https://via.placeholder.com/100x75' },
-    { id: 3, title: 'Family Session', client: 'Rodriguez Family', count: 56, preview: 'https://via.placeholder.com/100x75' }
-  ];
+
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
@@ -181,30 +184,6 @@ const AdminHome = () => {
                     <div className={`session-status ${booking.bookingStatus.toLowerCase()}`}>
                       {booking.bookingStatus}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            
-            {/* Recent Uploads */}
-            <div className="photo-card recent-uploads">
-              <div className="card-header">
-                <h2>Recent Uploads</h2>
-                <button className="view-all-btn">View All</button>
-              </div>
-              <div className="uploads-list">
-                {recentUploads.map(upload => (
-                  <div key={upload.id} className="upload-item">
-                    <div className="upload-preview">
-                      <img src={upload.preview} alt={upload.title} />
-                    </div>
-                    <div className="upload-details">
-                      <h4>{upload.title}</h4>
-                      <p>{upload.client}</p>
-                      <span className="photo-count">{upload.count} photos</span>
-                    </div>
-                    <button className="view-gallery-btn">View</button>
                   </div>
                 ))}
               </div>

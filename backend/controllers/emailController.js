@@ -12,6 +12,36 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// Add this function alongside your existing email functions
+export const sendResetPasswordEmail = async (email, otp) => {
+    try {
+        // Configure your email sending logic here (similar to sendVerificationEmail)
+        // Example using nodemailer:
+        const mailOptions = {
+            from: process.env.EMAIL_FROM,
+            to: email,
+            subject: 'Password Reset - Your OTP',
+            html: `
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: Arial, sans-serif;">
+                    <h2>Password Reset Request</h2>
+                    <p>You requested to reset your password. Please use the following OTP to verify your identity:</p>
+                    <div style="background-color: #f4f4f4; padding: 10px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
+                        ${otp}
+                    </div>
+                    <p>This OTP will expire in 10 minutes.</p>
+                    <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        return true;
+    } catch (error) {
+        console.error('Error sending reset password email:', error);
+        throw error;
+    }
+};
+
 const sendVerificationEmail = async (email, otp) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,

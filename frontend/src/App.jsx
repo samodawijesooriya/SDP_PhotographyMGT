@@ -7,7 +7,6 @@ import Gallery from './pages/Gallery/Gallery';
 import Contact from './pages/Contact/Contact';
 import LoginPopup from './components/LoginPopup/LoginPopup';
 import StoreContextProvider from './context/StoreContext';
-import Album from './pages/Albums/Album';
 import Booking from './pages/Booking/Booking';
 import YourBookings from '../src/pages/YourBookings/Events';
 import AdminDashboard from './pages/AdminDashboard/AdminDashboard';
@@ -18,6 +17,7 @@ import NotFound from './components/NotFound/NotFound';
 import PaymentSuccess from '../src/pages/Booking/PaymentSuccess';
 import BookingSuccess from './pages/Booking/Booking-success';
 import AlbumList from './pages/Albums/AlbumList';
+import Profile from './pages/Profile/Profile';
 
 // Protected route component for authenticated users
 const ProtectedRoute = ({ children }) => {
@@ -99,6 +99,7 @@ const AppContent = () => {
           <Route path="/events" element={<YourBookings />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/album" element={<AlbumList />} />
+          <Route path='/profile' element={<Profile />} />
 
           {/* Protected routes - require authentication */}
           <Route 

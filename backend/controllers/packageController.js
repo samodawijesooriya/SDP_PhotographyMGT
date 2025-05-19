@@ -203,22 +203,79 @@ const getPackageDetails = async (req, res) => {
     }
 };
 
-// create new package details
-const createPackageDetails = async (req, res) => {
+const createNewPackageDetails = async (req, res) => {  
     try {
-        const { detailDescription } = req.body;
-        const sqlInsert = 'INSERT INTO details (detailDescription) VALUES (?)';
-        const insertResult = await queryDatabase(sqlInsert, [detailDescription]);
+        const { detailDescription, pricePerDetail } = req.body;
+        // get the max detailId from the details table
+        const sqlId = 'SELECT COALESCE(MAX(detailId), 0) AS maxId FROM details';
+        const idResults = await queryDatabase(sqlId);
+        // check if any erro
+        if (idResults.length === 0) {
+            return res.status(500).json({ message: 'Error fetching detailId' });
+        }
+        const newDetailId = idResults[0].maxId + 1;
 
+        // Insert the new package detail
+        const sqlInsert = 'INSERT INTO details (detailId, detailDescription, pricePerDetail) VALUES (?, ?, ?)';
+        const insertResult = await queryDatabase(sqlInsert, [newDetailId, detailDescription, pricePerDetail]);
         if (insertResult.affectedRows > 0) {
-            res.json({ success: true, message: 'Package detail created successfully', detailId: insertResult.insertId });
+            res.json({ success: true, message: 'Package detail created successfully', detailId: newDetailId });
         }
         else {
             res.json({ success: false, message: 'Failed to create package detail' });
         }
     } catch (error) {
-        console.error('Error creating package detail:', error);
-        res.status(500).json({ message: 'Error creating package detail', error: error.message });
+        console.error('Error creating new package details:', error);
+        res.status(500).json({ message: 'Error creating new package details', error: error.message });
+    }
+}
+
+const deletePackageDetails = async (req, res) => {
+    try {
+        const { detailId } = req.params;
+        // check if detailId is provided exisists
+        const sqlCheckDetail = 'SELECT detailId FROM details WHERE detailId = ?';
+        const detailResults = await queryDatabase(sqlCheckDetail, [detailId]);
+        if (detailResults.length === 0) {
+            return res.status(404).json({ message: 'Detail not found' });
+        }
+
+        // Delete the package detail
+        const sqlDelete = 'DELETE FROM details WHERE detailId = ?';
+        const deleteResult = await queryDatabase(sqlDelete, [detailId]);
+        if (deleteResult.affectedRows > 0) {
+            res.json({ success: true, message: 'Package detail deleted successfully' });
+        } else{
+            res.json({ success: false, message: 'Failed to delete package detail' });
+        }
+    } catch (error) {
+        console.error('Error deleting package details:', error);
+        res.status(500).json({ message: 'Error deleting package details', error: error.message });
+        
+    }
+}
+
+const  editPackageDetails = async (req, res) => {
+    try {
+        // get the req parms
+        const { detailId, detailDescription, pricePerDetail } = req.body;
+        // check if detailId is provided exisists
+        if (!detailId) {
+            return res.status(400).json({ message: 'Detail ID is required' });
+        }
+
+        // Update the package detail
+        const sqlUpdate = 'UPDATE details SET detailDescription = ?, pricePerDetail = ? WHERE detailId = ?';
+        const updateResult = await queryDatabase(sqlUpdate, [detailDescription, pricePerDetail, detailId]);
+        if (updateResult.affectedRows > 0) {
+            res.json({ success: true, message: 'Package detail updated successfully' });
+        }
+        else {
+            res.json({ success: false, message: 'Failed to update package detail' });
+        }
+    } catch (error) {
+        console.error('Error editing package details:', error);
+        res.status(500).json({ message: 'Error editing package details', error: error.message });
     }
 }
 
@@ -242,21 +299,80 @@ const createPackageEvents = async (req, res) => {
 
 const createPackageItems = async (req, res) => {   
     try {
-        const { itemType, itemDescription } = req.body;
-        const sqlInsert = 'INSERT INTO items (itemType) VALUES ( ?)';
-        const insertResult = await queryDatabase(sqlInsert, [itemType]);
-        
-        if (insertResult.affectedRows > 0) {
-            res.json({ success: true, message: 'Package item created successfully', itemId: insertResult.insertId });
+        const { itemType, pricePerItem } = req.body;
+        // get the max itemId from the items table
+        const sqlId = 'SELECT COALESCE(MAX(itemId), 0) AS maxId FROM items';
+        const idResults = await queryDatabase(sqlId);
+        // check if any erro
+        if (idResults.length === 0) {
+            return res.status(500).json({ message: 'Error fetching itemId' });
         }
-        else {
+        const newItemId = idResults[0].maxId + 1;
+        // Insert new package items
+        const sqlInsert = 'INSERT INTO items (itemId, itemType, pricePerItem) VALUES (?, ?, ?)';
+        const insertResult = await queryDatabase(sqlInsert, [newItemId, itemType, pricePerItem]);
+        if (insertResult.affectedRows > 0) {
+            res.json({ success: true, message: 'Package item created successfully', itemId: newItemId });
+        }else {
             res.json({ success: false, message: 'Failed to create package item' });
-        }   
+        }
     } catch (error) {
         console.error('Error creating package item:', error);
         res.status(500).json({ message: 'Error creating package item', error: error.message });
     }
 };
+
+const editPackageItems = async (req, res) => {
+    try {
+        const { itemId, itemType, pricePerItem} = req.body;
+
+        // check if itemId is provided exisists
+        if (!itemId) {
+            return res.status(400).json({ message: 'Item ID is required' });
+        }
+
+        // Update the package item
+        const sqlUpdate = 'UPDATE items SET itemType = ?, pricePerItem = ? WHERE itemId = ?';
+        const updateResult = await queryDatabase(sqlUpdate, [itemType, pricePerItem, itemId]);
+
+        if (updateResult.affectedRows > 0) {
+            res.json({ success: true, message: 'Package item updated successfully' });
+        }else {
+            res.json({ success: false, message: 'Failed to update package item' });
+        }   
+        
+    } catch (error) {
+        console.error('Error editing package item:', error);
+        res.status(500).json({ message: 'Error editing package item', error: error.message });
+    }
+}
+
+const deletePackageItems = async (req, res) => {
+    try {
+        const { itemId } = req.params;
+        // check if itemId is provided exisists
+        const sqlCheckItem = 'SELECT itemId FROM items WHERE itemId = ?';
+        const itemResults = await queryDatabase(sqlCheckItem, [itemId]);
+
+        if (itemResults.length === 0) {
+            return res.status(404).json({ message: 'Item not found' });
+        }
+
+        // Delete the package item
+        const sqlDelete = 'DELETE FROM items WHERE itemId = ?';
+        const deleteResult = await queryDatabase(sqlDelete, [itemId]);
+        if (deleteResult.affectedRows > 0) {
+            res.json({ success: true, message: 'Package item deleted successfully' });
+        }
+        else {
+            res.json({ success: false, message: 'Failed to delete package item' });
+        }
+
+    } catch (error) {
+        console.error('Error deleting package item:', error);
+        res.status(500).json({ message: 'Error deleting package item', error: error.message });
+    }
+}
 
 const createPackage = async (req, res) => {
     const { 
@@ -695,10 +811,14 @@ export {
     getPackageItems,
     getPackageDetails,
     getPackageById,
-    createPackageDetails,
     createPackageEvents, 
     createPackageItems,
     getPackageByEventType,   
     createCustomPackage, 
-    getUserCustomPackages
+    getUserCustomPackages,
+    createNewPackageDetails,
+    editPackageItems,
+    deletePackageItems,
+    deletePackageDetails,
+    editPackageDetails
 };

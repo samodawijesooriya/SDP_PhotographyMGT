@@ -3,7 +3,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  margin-top: 5%;
+  margin-top: 3%;
   overflow-y: auto;
 }
 
@@ -36,7 +36,7 @@
 
 /* Single page form styles */
 .single-page-form-container {
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 .form-section {

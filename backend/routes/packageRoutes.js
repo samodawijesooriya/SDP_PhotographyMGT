@@ -10,13 +10,16 @@ import {
     updatePackage,
     deletePackage,
     getPackageById,
-    createPackageDetails,
-    getPackageFormData,
     createPackageEvents,
     createPackageItems,
     getPackageByEventType,
     createCustomPackage,
-    getUserCustomPackages
+    getUserCustomPackages,
+    createNewPackageDetails,
+    deletePackageItems,
+    deletePackageDetails,
+    editPackageDetails,
+    editPackageItems
 } from '../controllers/packageController.js';
 
 
@@ -39,6 +42,19 @@ packageRouter.get('/pkg/tiers', getPackageTiers);
 // fetch package items
 packageRouter.get('/pkg/items', getPackageItems); 
 
+// create package items
+packageRouter.post('/items', createPackageItems);
+
+// edit package items
+packageRouter.get('/items/:itemId', getPackageItems);
+
+// delete package items
+packageRouter.delete('/items/:itemId', deletePackageItems);
+
+// edit package items
+packageRouter.put('/pkg/items/:itemId', editPackageItems);
+
+// create a customized package
 packageRouter.post('/custom/create', createCustomPackage)
 
 // get user custom package form data
@@ -46,6 +62,15 @@ packageRouter.get('/custom/get/:userId', getUserCustomPackages);
 
 // fetch package details
 packageRouter.get('/pkg/details', getPackageDetails);
+
+// create new pacakge details
+packageRouter.post('/pkg/details', createNewPackageDetails);
+
+// delete package details
+packageRouter.delete('/details/:detailId', deletePackageDetails);
+
+// edit package details
+packageRouter.put('/pkg/details/:detailId', editPackageDetails);
 
 // Create a new package
 packageRouter.post('/create', createPackage);
@@ -56,13 +81,5 @@ packageRouter.put('/:packageId', updatePackage);
 // Delete a package
 packageRouter.delete('/:packageId', deletePackage);
 
-// add details to package
-packageRouter.post('/pkg/details/create', createPackageDetails);
-
-// add events to package
-packageRouter.post('/pkg/events/create', createPackageEvents);
-
-// add items to package
-packageRouter.post('/pkg/items/create', createPackageItems);
 
 export default packageRouter;

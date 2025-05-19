@@ -1,5 +1,5 @@
 import express, { Router } from 'express';
-import { registerUser, loginUser, getAllUsers, createUser, deleteUser, updateUser, resendOTP, verifyEmail, getUserById} from '../controllers/userController.js';
+import { registerUser, loginUser, getAllUsers, createUser, deleteUser, updateUser, resendOTP, verifyEmail, getUserById, updateUserProfile, changePassword } from '../controllers/userController.js';
 
 // add router
 const userRouter = express.Router();
@@ -16,6 +16,12 @@ userRouter.get('/allusers', getAllUsers);
 // get user by id
 userRouter.get('/:userId',getUserById );
 
+// user apis for profile
+userRouter.get('/profile/:userId', getUserById);
+
+// update user profile
+userRouter.put('/profile', updateUserProfile);
+
 //create a new user
 userRouter.post('/create', createUser);
 
@@ -30,5 +36,8 @@ userRouter.post('/verify-email', verifyEmail);
 
 // Resend OTP
 userRouter.post('/resend-otp', resendOTP);
+
+// Change password route
+userRouter.put('/change-password/:userId', changePassword);
 
 export default userRouter;

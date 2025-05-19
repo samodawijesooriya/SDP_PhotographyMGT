@@ -13,8 +13,7 @@ const Payments = () => {
   const [viewReceiptModal, setViewReceiptModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [editPaymentModal, setEditPaymentModal] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('all');  const [editingPaymentId, setEditingPaymentId] = useState(null);
   const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
 
   // Fetch all payments
@@ -91,11 +90,16 @@ const Payments = () => {
     setSelectedPayment(payment);
     setViewReceiptModal(true);
   };
-
   // Edit payment
   const editPayment = (payment) => {
     setSelectedPayment(payment);
-    setEditPaymentModal(true);
+    setEditingPaymentId(payment.paymentId);
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingPaymentId(null);
+    setSelectedPayment(null);
   };
 
   // Delete payment
@@ -103,10 +107,8 @@ const Payments = () => {
     setSelectedPayment(payment);
     setDeleteConfirmModal(true);
   };
-
   // Handle edit payment form submission
-  const handleEditPayment = async (e) => {
-    e.preventDefault();
+  const handleEditPayment = async () => {
     try {
       const response = await axios.put(`${url}/api/payments/${selectedPayment.paymentId}`, selectedPayment, {
         headers: {
@@ -119,7 +121,8 @@ const Payments = () => {
         payment.paymentId === selectedPayment.paymentId ? response.data : payment
       ));
       
-      setEditPaymentModal(false);
+      setEditingPaymentId(null);
+      setSelectedPayment(null);
       // Optional: Add success toast/notification
     } catch (err) {
       console.error('Error updating payment:', err);
@@ -155,7 +158,6 @@ const Payments = () => {
       [name]: value
     });
   };
-
   // Filter payments based on active tab and search query
   const filteredPayments = payments.filter(payment => {
     // First filter by tab
@@ -166,12 +168,14 @@ const Payments = () => {
     if (activeTab === 'refunds' && payment.type !== 'Refund') return false;
     
     // Then filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
+    if (searchQuery) {      const query = searchQuery.toLowerCase();
+      const paymentAmountStr = payment.paymentAmount?.toString().toLowerCase();
+      
       return (
-        payment.customerName?.toLowerCase().includes(query) ||
+        payment.fullName?.toLowerCase().includes(query) ||
         payment.bookingId?.toString().includes(query) ||
-        payment.referenceNumber?.toLowerCase().includes(query)
+        payment.referenceNumber?.toLowerCase().includes(query) ||
+        paymentAmountStr?.includes(query)
       );
     }
     
@@ -220,7 +224,44 @@ const Payments = () => {
         <h1>Payment Management</h1>
         <p>Manage all customer payments, advances, and bank transfers</p>
       </div>
-      
+
+      {/* Dashboard Summary Cards */}
+      <div className="payment-summary-cards">
+        <div className="summary-card">
+          <div className="card-icon total-icon">
+            
+          </div>
+          <div className="card-content">
+            <h3>Total Confirmed Payments</h3>
+            <p className="amount">{formatCurrency(payments.reduce((sum, payment) => 
+              payment.paymentStatus === 'Confirmed' ? sum + parseFloat(payment.paymentAmount) : sum, 0))}</p>
+            <p className="count">{payments.filter(p => p.type === 'payment').length} payments</p>
+          </div>
+        </div>
+        
+        <div className="summary-card">
+          <div className="card-icon refund-icon">
+          </div>
+          <div className="card-content">
+            <h3>Total Pending Payments</h3>
+            <p className="amount">{formatCurrency(payments.reduce((sum, payment) => 
+              payment.paymentStatus === 'Pending' ? sum + parseFloat(payment.paymentAmount) : sum, 0))}</p>
+            <p className="count">{payments.filter(p => p.type === 'refund').length} refunds</p>
+          </div>
+        </div>
+
+        <div className="summary-card">
+          <div className="card-icon refund-icon">
+          </div>
+          <div className="card-content">
+            <h3>Refunds</h3>
+            <p className="amount">{formatCurrency(payments.reduce((sum, payment) => 
+              payment.paymentStatus === 'refund' ? sum + parseFloat(payment.amount) : sum, 0))}</p>
+            <p className="count">{payments.filter(p => p.type === 'refund').length} refunds</p>
+          </div>
+        </div>
+      </div>
+
       <div className="payment-actions">
         <div className="payment-tabs">
           <button 
@@ -232,9 +273,9 @@ const Payments = () => {
           
           <button 
             className={`tab-btn ${activeTab === 'advances' ? 'active' : ''}`}
-            onClick={() => setActiveTab('advances')}
+            onClick={() => setActiveTab('Pending')}
           >
-            Advances
+            Pending
           </button>
           <button 
             className={`tab-btn ${activeTab === 'refunds' ? 'active' : ''}`}
@@ -244,12 +285,12 @@ const Payments = () => {
           </button>
         </div>
         
-        <div className="payment-filters">
-          <div className="search-box">
+        <div className="payment-filters">          
+        <div className="search-box">
             <Search size={18} />
             <input 
               type="text" 
-              placeholder="Search by customer name or booking ID..."
+              placeholder="Search by customer name, amount, or booking ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -288,40 +329,122 @@ const Payments = () => {
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {filteredPayments.map((payment) => (
+            <tbody>              
+            {filteredPayments.map((payment) => (
                 <tr key={payment.paymentId} className={payment.status === 'pending' ? 'pending-row' : ''}>
-                  <td>{payment.fullName}</td>
-                  <td>{payment.bookingId}</td>
-                  <td>{formatDate(payment.paymentDate)}</td>
-                  <td className="amount-cell">{formatCurrency(payment.paymentAmount)}</td>
-                  <td>{payment.paymentMethod}</td>
-                  <td>{renderStatus(payment.paymentStatus)}</td>
-                  <td className="actions-cell">
-                    {payment.paymentMethod === 'bankTransfer' && payment.receiptUrl && (
-                      <button 
-                        className="view-btn"
-                        onClick={() => viewReceipt(payment)}
-                        title="View Receipt"
-                      >
-                        <Eye size={16} />
-                      </button>
-                    )}
-                    <button 
-                      className="edit-btn"
-                      onClick={() => editPayment(payment)}
-                      title="Edit Payment"
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button 
-                      className="delete-btn"
-                      onClick={() => openDeleteConfirm(payment)}
-                      title="Delete Payment"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </td>
+                  {editingPaymentId === payment.paymentId ? (
+                    // Editing mode
+                    <>
+                      <td>
+                        <input
+                          type="text"
+                          name="fullName"
+                          value={selectedPayment.fullName || ''}
+                          onChange={handleInputChange}
+                          className="inline-edit-input"
+                        />
+                      </td>
+                      <td>{payment.bookingId}</td>
+                      <td>
+                        <input
+                          type="datetime-local"
+                          name="paymentDate"
+                          value={selectedPayment.paymentDate ? new Date(selectedPayment.paymentDate).toISOString().slice(0, 16) : ''}
+                          onChange={handleInputChange}
+                          className="inline-edit-input"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          name="paymentAmount"
+                          value={selectedPayment.paymentAmount || ''}
+                          onChange={handleInputChange}
+                          className="inline-edit-input"
+                          step="0.01"
+                          min="0"
+                        />
+                      </td>
+                      <td>
+                        <select
+                          name="paymentMethod"
+                          value={selectedPayment.paymentMethod || ''}
+                          onChange={handleInputChange}
+                          className="inline-edit-input"
+                        >
+                          <option value="creditCard">Credit Card</option>
+                          <option value="bankTransfer">Bank Transfer</option>
+                          <option value="cash">Cash</option>
+                          <option value="paypal">PayPal</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          name="paymentStatus"
+                          value={selectedPayment.paymentStatus || ''}
+                          onChange={handleInputChange}
+                          className="inline-edit-input"
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Confirmed">Confirmed</option>
+                          <option value="Rejected">Rejected</option>
+                        </select>
+                      </td>
+                      <td className="actions-cell">
+                        <div className="edit-actions">
+                          <button 
+                            className="save-inline-btn"
+                            onClick={handleEditPayment}
+                            title="Save Changes"
+                          >
+                            Save
+                          </button>
+                          <button 
+                            className="cancel-inline-btn"
+                            onClick={cancelEditing}
+                            title="Cancel"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    // Display mode
+                    <>
+                      <td>{payment.fullName}</td>
+                      <td>{payment.bookingId}</td>
+                      <td>{formatDate(payment.paymentDate)}</td>
+                      <td className="amount-cell">{formatCurrency(payment.paymentAmount)}</td>
+                      <td>{payment.paymentMethod}</td>
+                      <td>{renderStatus(payment.paymentStatus)}</td>
+                      <td className="actions-cell">
+                        {payment.paymentMethod === 'bankTransfer' && payment.receiptUrl && (
+                          <button 
+                            className="view-btn"
+                            onClick={() => viewReceipt(payment)}
+                            title="View Receipt"
+                          >
+                            <Eye size={16} />
+                          </button>
+                        )}
+                        <button 
+                          className="edit-btn"
+                          onClick={() => editPayment(payment)}
+                          title="Edit Payment"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button 
+                          className="delete-btn"
+                          onClick={() => openDeleteConfirm(payment)}
+                          title="Delete Payment"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -387,128 +510,6 @@ const Payments = () => {
         </div>
       )}
       
-      {/* Edit Payment Modal */}
-      {editPaymentModal && selectedPayment && (
-        <div className="modal-overlay">
-          <div className="edit-payment-modal">
-            <div className="modal-header">
-              <h4>Edit Payment</h4>
-              <button className="close-btn" onClick={() => setEditPaymentModal(false)}>
-                <X size={20} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleEditPayment} className="edit-payment-form">
-              <div className="form-group">
-                <label htmlFor="fullName">Customer Name</label>
-                <input
-                  type="text"
-                  id="fullName"
-                  name="fullName"
-                  value={selectedPayment.fullName || ''}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="amount">Amount (LKR)</label>
-                <input
-                  type="number"
-                  id="amount"
-                  name="amount"
-                  value={selectedPayment.paymentAmount || ''}
-                  onChange={handleInputChange}
-                  step="0.01"
-                  min="0"
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="paymentDate">Payment Date</label>
-                <input
-                  type="datetime-local"
-                  id="paymentDate"
-                  name="paymentDate"
-                  value={selectedPayment.paymentDate ? new Date(selectedPayment.paymentDate).toISOString().slice(0, 16) : ''}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="paymentMethod">Payment Method</label>
-                <select
-                  id="paymentMethod"
-                  name="paymentMethod"
-                  value={selectedPayment.paymentMethod || ''}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="">Select Payment Method</option>
-                  <option value="creditCard">Credit Card</option>
-                  <option value="bankTransfer">Bank Transfer</option>
-                  <option value="cash">Cash</option>
-                  <option value="paypal">PayPal</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="paymentStatus">Payment Status</label>
-                <select
-                  id="paymentStatus"
-                  name="paymentStatus"
-                  value={selectedPayment.paymentStatus || ''}
-                  onChange={handleInputChange}
-                  required
-                >
-                  <option value="">Select Status</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Confirmed">Confirmed</option>
-                  <option value="Rejected">Rejected</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="referenceNumber">Reference Number</label>
-                <input
-                  type="text"
-                  id="referenceNumber"
-                  name="referenceNumber"
-                  value={selectedPayment.referenceNumber || ''}
-                  onChange={handleInputChange}
-                />
-              </div>
-              
-              <div className="form-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    name="isAdvancePayment"
-                    checked={selectedPayment.isAdvancePayment || false}
-                    onChange={(e) => setSelectedPayment({
-                      ...selectedPayment,
-                      isAdvancePayment: e.target.checked
-                    })}
-                  />
-                  Is Advance Payment
-                </label>
-              </div>
-              
-              <div className="modal-footer">
-                <button type="button" className="cancel-btn" onClick={() => setEditPaymentModal(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="save-btn">
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      
       {/* Delete Confirmation Modal */}
       {deleteConfirmModal && selectedPayment && (
         <div className="modal-overlay">
@@ -541,43 +542,6 @@ const Payments = () => {
           </div>
         </div>
       )}
-      
-      {/* Dashboard Summary Cards */}
-      <div className="payment-summary-cards">
-        <div className="summary-card">
-          <div className="card-icon total-icon">
-            
-          </div>
-          <div className="card-content">
-            <h3>Total Payments</h3>
-            <p className="amount">{formatCurrency(payments.reduce((sum, payment) => 
-              payment.paymentStatus === 'Confirmed' ? sum + parseFloat(payment.paymentAmount) : sum, 0))}</p>
-            <p className="count">{payments.filter(p => p.type === 'payment').length} payments</p>
-          </div>
-        </div>
-        
-        <div className="summary-card">
-          <div className="card-icon advance-icon">
-          </div>
-          <div className="card-content">
-            <h3>Advance Payments</h3>
-            <p className="amount">{formatCurrency(payments.reduce((sum, payment) => 
-              payment.isAdvancePayment ? sum + parseFloat(payment.amount) : sum, 0))}</p>
-            <p className="count">{payments.filter(p => p.isAdvancePayment).length} payments</p>
-          </div>
-        </div>
-        
-        <div className="summary-card">
-          <div className="card-icon refund-icon">
-          </div>
-          <div className="card-content">
-            <h3>Refunds</h3>
-            <p className="amount">{formatCurrency(payments.reduce((sum, payment) => 
-              payment.paymentStatus === 'refund' ? sum + parseFloat(payment.amount) : sum, 0))}</p>
-            <p className="count">{payments.filter(p => p.type === 'refund').length} refunds</p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
