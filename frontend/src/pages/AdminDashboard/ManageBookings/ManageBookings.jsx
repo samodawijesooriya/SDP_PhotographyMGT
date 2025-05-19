@@ -18,7 +18,7 @@ const ManageBookings = () => {
     const [packages, setPackages] = useState([]);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [bookingToDelete, setBookingToDelete] = useState(null);
-    const [activeTab, setActiveTab] = useState('all'); // Added for tab functionality
+    const [activeTab, setActiveTab] = useState('all');
       const [editFormData, setEditFormData] = useState({
         fullName: '',
         email: '',
@@ -342,12 +342,12 @@ const ManageBookings = () => {
     return (
         <div className="bookings-management">
             <div className="header-container">
-            <button 
+            {/* <button 
             className="cleanup-btn"
             onClick={triggerPencilBookingsCleanup}
             >
             Clean Up Old Pencil Bookings
-            </button>
+            </button> */}
         <div className="search-container1">
             <input
                 type="text"
@@ -593,17 +593,18 @@ const ManageBookings = () => {
                                         onChange={handleEditFormChange}
                                         required
                                     />
-                                </div>
-                                <div className="form-group">
+                                </div>                                <div className="form-group">
                                     <label htmlFor="email">Email</label>
                                     <input 
                                         type="email" 
                                         id="email" 
                                         name="email"
                                         value={editFormData.email}
-                                        onChange={handleEditFormChange}
+                                        readOnly
+                                        className="readonly-field"
                                         required
                                     />
+                                    <small className="helper-text">Email cannot be edited</small>
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="billingMobile">Mobile</label>

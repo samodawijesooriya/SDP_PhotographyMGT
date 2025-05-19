@@ -198,7 +198,7 @@ const Login = ({setShowLogin}) => {
         
         // If login tokens are provided after verification
         if (response.data.token) {
-          localStorage.setItem("token", response.data.token);
+          console.log("Token:", response.data.user);
           localStorage.setItem("userData", JSON.stringify(response.data.user));
           
           // Dispatch storage event for other components to detect login
@@ -254,6 +254,8 @@ const Login = ({setShowLogin}) => {
           username: data.username,
           password: data.password
         });
+
+        console.log("Login response:", response.data);
         
         if (response.data.success) {
           // If email is not verified

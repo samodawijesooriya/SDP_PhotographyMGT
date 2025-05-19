@@ -787,3 +787,18 @@
     font-size: 13px;
   }
 }
+
+/* Readonly field styling */
+.readonly-field {
+  background-color: #f8f9fa;
+  cursor: not-allowed;
+  border-color: #e2e8f0;
+  color: #718096;
+}
+
+.helper-text {
+  font-size: 12px;
+  color: #718096;
+  margin-top: 4px;
+  display: block;
+}

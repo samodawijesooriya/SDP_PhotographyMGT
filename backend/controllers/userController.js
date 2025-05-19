@@ -80,7 +80,6 @@ const registerUser = async (req, res) => {
 };
 
 // login user
-
 const loginUser = async (req, res) => {
     const {username, password} = req.body;
     try {
@@ -122,11 +121,12 @@ const loginUser = async (req, res) => {
         const user = results[0];
 
         // Check password
-        const isMatch = await bcrypt.compare(password, user.password);
+        // const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = password === user.password; // Use the plain password for comparison
         if (!isMatch) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid credentials'
+                message: 'Invalid password'
             });
         }
 
@@ -159,12 +159,12 @@ const loginUser = async (req, res) => {
                     success: true,
                     emailVerificationRequired: true,
                     email: user.email,
-                    message: 'Email verification required'
+                    message: 'Your email is not verified. A verification code has been sent to your email. Please verify your email to continue.'
                 });
             } catch (error) {
                 return res.status(500).json({
                     success: false,
-                    message: 'Database error when updating OTP'
+                    message: 'Failed to send verification email. Please try again later.'
                 });
             }
         }
@@ -183,10 +183,10 @@ const loginUser = async (req, res) => {
             success: true,
             token,
             user: {
-                id: user.id,
+                id: user.userID,
                 username: user.username,
                 email: user.email,
-                name: user.name,
+                name: user.fullName,
                 role: user.role
             }
         });      
@@ -217,6 +217,39 @@ const getAllUsers = async(req, res) => {
     }
 }
 
+const getUserById = async (req, res) => {
+    try {
+        const userId = req.params.userId;
+        
+        const query = `
+            SELECT c.fullName, c.billingMobile, c.billingAddress, u.email 
+            FROM customers c 
+            JOIN user u ON c.userId = u.userId 
+            WHERE c.userId = ?`;
+            
+        db.query(query, [userId], (error, results) => {
+            if (error) {
+            res.status(500).send({
+                message: "Error retrieving user details"
+            });
+            } else if (results.length === 0) {
+            res.status(404).send({
+                message: "User not found"
+            });
+            } else {
+            res.send(results[0]);
+            }
+        });
+    } catch (error) {
+        res.status(500).send({
+            error: error.message,
+            message: "An error occurred while retrieving user details."
+        });
+    }  
+}
+
+
+
 // Helper function to generate OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
@@ -245,10 +278,7 @@ const createUser = async (req, res) => {
             if (results.length > 0) {
                 return res.json({ success: false, message: "User already exists" });
             }
-
-            // Generate and hash the password
-            const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash(password, salt);
+            
 
             // Generate OTP
             const otp = generateOTP();
@@ -265,7 +295,7 @@ const createUser = async (req, res) => {
                 
                 // Insert new user - fixed parameter count
                 const sqlInsert = 'INSERT INTO user (userID, username, email, password, role, isEmailVerified, verificationOTP, verificationOTPExpiry) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-                db.query(sqlInsert, [newUserId, username, email, hashedPassword, role, false, otp, otpExpiry], async (err, user) => {
+                db.query(sqlInsert, [newUserId, username, email, password, role, false, otp, otpExpiry], async (err, user) => {
                     console.log("Data submited", otp);
 
                     if (err) {
@@ -285,6 +315,7 @@ const createUser = async (req, res) => {
                         const customerInsertQuery = 'INSERT INTO customers (customerId, fullName, billingAddress, billingMobile, userId) VALUES (?, ?, ?, ?, ?)';
                         db.query(customerInsertQuery, [newCustomerId, name, address, mobile, newUserId], async (err, customer) => {
                             if (err) {
+                                console.log(err);
                                 return res.json({ success: false, message: "An error occurred while creating the customer" });
                             }
 
@@ -399,13 +430,14 @@ const verifyEmail = async (req, res) => {
                 };
 
                 const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '30d' });
+                console.log("Token generated:", user.userID);
 
                 return res.status(200).json({
                     success: true,
                     message: 'Email verified successfully',
                     token,
                     user: {
-                        id: user.id,
+                        id: user.userID,
                         username: user.username,
                         email: user.email,
                         name: user.name,
@@ -543,4 +575,4 @@ const updateUser = async (req, res) => {
     }
 }
 
-export { registerUser, loginUser, getAllUsers, createUser, deleteUser, updateUser, verifyEmail, resendOTP };
+export { registerUser, loginUser, getAllUsers, createUser, deleteUser, updateUser, verifyEmail, resendOTP, getUserById };

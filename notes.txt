@@ -28,4 +28,239 @@ reports
 
 cancel booking
 
+package(packageId,  packageName, eventId, packageTierId, investedAmount,coverageHours)
+
+package items (packageId, itemId, quantity) 
+
+items(itemId, itemType, pricePerItem)
+
+details( detailId, detailDescription) 
+
+packageDetails (packageId,detailId)
+
+details( detailId, detailDescription) 
+
+remove the credit cardid from the payment table
+
+create custom packages in an another table like the normal package table
 more notes here....
+
+
+// custom pacakge code for later
+// Get the user's custom packages
+const getUserCustomPackages = async (req, res) => {
+    const userId = req.params.userId;
+    
+    if (!userId) {
+        return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+    
+    try {
+        // Join with event and packageTier to get names rather than just IDs
+        const sql = `
+            SELECT p.*, e.eventName, pt.packageTierName 
+            FROM package p
+            JOIN event e ON p.eventId = e.eventId
+            JOIN packageTier pt ON p.packageTierId = pt.packageTierId
+            WHERE p.userId = ? AND p.isCustom = true
+        `;
+        
+        const packages = await queryDatabase(sql, [userId]);
+        
+        // For each package, get its items and details
+        for (const pkg of packages) {
+            // Get package items
+            const itemsSql = `
+                SELECT i.itemType, pi.quantity 
+                FROM packageItem pi
+                JOIN item i ON pi.itemId = i.itemId
+                WHERE pi.packageId = ?
+            `;
+            const items = await queryDatabase(itemsSql, [pkg.packageId]);
+            
+            // Format items as a string
+            pkg.items = items
+                .map(item => `${item.itemType}:${item.quantity}`)
+                .join(';');
+            
+            // Get package details
+            const detailsSql = `
+                SELECT d.detailDescription 
+                FROM packageDetail pd
+                JOIN detail d ON pd.detailId = d.detailId
+                WHERE pd.packageId = ?
+            `;
+            const details = await queryDatabase(detailsSql, [pkg.packageId]);
+            
+            // Format details as a string
+            pkg.details = details
+                .map(detail => detail.detailDescription)
+                .join(';');
+        }
+        
+        res.json(packages);
+        
+    } catch (error) {
+        console.error('Error fetching custom packages:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error fetching custom packages', 
+            error: error.message 
+        });
+    }
+};
+
+// Get a base package for a specific event type (for customization)
+const getBasePackage = async (req, res) => {
+    const eventType = req.params.eventType;
+    
+    if (!eventType) {
+        return res.status(400).json({ success: false, message: "Event type is required" });
+    }
+    
+    try {
+        // Get the most basic package for the event type (e.g., "Bronze" or lowest tier)
+        const sql = `
+            SELECT p.*, e.eventName, pt.packageTierName 
+            FROM package p
+            JOIN event e ON p.eventId = e.eventId
+            JOIN packageTier pt ON p.packageTierId = pt.packageTierId
+            WHERE e.eventName = ? AND p.isCustom = false
+            ORDER BY p.investedAmount ASC
+            LIMIT 1
+        `;
+        
+        const basePackages = await queryDatabase(sql, [eventType]);
+        
+        if (basePackages.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: `No base package found for event type: ${eventType}` 
+            });
+        }
+        
+        const basePackage = basePackages[0];
+        
+        // Get package items
+        const itemsSql = `
+            SELECT i.itemType, pi.quantity 
+            FROM packageItem pi
+            JOIN item i ON pi.itemId = i.itemId
+            WHERE pi.packageId = ?
+        `;
+        const items = await queryDatabase(itemsSql, [basePackage.packageId]);
+        
+        // Format items as a string
+        basePackage.items = items
+            .map(item => `${item.itemType}:${item.quantity}`)
+            .join(';');
+        
+        // Get package details
+        const detailsSql = `
+            SELECT d.detailDescription 
+            FROM packageDetail pd
+            JOIN detail d ON pd.detailId = d.detailId
+            WHERE pd.packageId = ?
+        `;
+        const details = await queryDatabase(detailsSql, [basePackage.packageId]);
+        
+        // Format details as a string
+        basePackage.details = details
+            .map(detail => detail.detailDescription)
+            .join(';');
+        
+        res.json(basePackage);
+        
+    } catch (error) {
+        console.error(`Error fetching base package for ${eventType}:`, error);
+        res.status(500).json({ 
+            success: false, 
+            message: `Error fetching base package for ${eventType}`, 
+            error: error.message 
+        });
+    }
+};
+
+// Get all items for package customization
+const getPackageItems = async (req, res) => {
+    try {
+        const sql = 'SELECT itemId, itemType, pricePerItem FROM item';
+        const items = await queryDatabase(sql);
+        res.json(items);
+    } catch (error) {
+        console.error('Error fetching package items:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error fetching package items', 
+            error: error.message 
+        });
+    }
+};
+
+// Get all details for package customization
+const getPackageDetails = async (req, res) => {
+    try {
+        const sql = 'SELECT detailId, detailDescription, pricePerDetail FROM detail';
+        const details = await queryDatabase(sql);
+        res.json(details);
+    } catch (error) {
+        console.error('Error fetching package details:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Error fetching package details', 
+            error: error.message 
+        });
+    }
+};
+
+// Utility function for querying the database with Promises
+const queryDatabase = (query, params) => {
+    return new Promise((resolve, reject) => {
+        db.query(query, params, (err, results) => {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(results);
+            }
+        });
+    });
+};
+
+module.exports = {
+    createCustomPackage,
+    getUserCustomPackages,
+    getBasePackage,
+    getPackageItems,
+    getPackageDetails
+};
+
+SELECT 
+                    p.packageId, 
+                    p.packageName, 
+                    e.eventName, 
+                    pt.packageTierName,
+                    p.investedAmount, 
+                    p.coverageHours,
+                    u.username,  -- Get username directly since we're only showing custom packages
+                    GROUP_CONCAT(DISTINCT CONCAT(i.itemType, ':', pi.quantity) SEPARATOR '; ') AS items,
+                    GROUP_CONCAT(DISTINCT d.detailDescription SEPARATOR '; ') AS details
+                FROM 
+                    package p
+                    LEFT JOIN event e ON p.eventId = e.eventId
+                    LEFT JOIN packageTier pt ON p.packageTierId = pt.packageTierId
+                    LEFT JOIN packageItems pi ON p.packageId = pi.packageId
+                    LEFT JOIN items i ON pi.itemId = i.itemId
+                    LEFT JOIN packageDetails pd ON p.packageId = pd.packageId
+                    LEFT JOIN details d ON pd.detailId = d.detailId
+                    LEFT JOIN user u ON p.userId = u.userID
+                WHERE
+                    pt.packageTierName = 'Custom'  -- Only show custom packages
+                    -- Alternatively, you could use: pt.packageTierName = 'Custom'
+                GROUP BY 
+                    p.packageId, 
+                    p.packageName, 
+                    e.eventName, 
+                    pt.packageTierName,
+                    p.investedAmount, 
+                    p.coverageHours,
+                    u.username

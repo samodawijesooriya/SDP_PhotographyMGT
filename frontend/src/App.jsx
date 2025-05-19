@@ -9,7 +9,7 @@ import LoginPopup from './components/LoginPopup/LoginPopup';
 import StoreContextProvider from './context/StoreContext';
 import Album from './pages/Albums/Album';
 import Booking from './pages/Booking/Booking';
-import Events from './pages/Events/Events';
+import YourBookings from '../src/pages/YourBookings/Events';
 import AdminDashboard from './pages/AdminDashboard/AdminDashboard';
 import UserView from './pages/AdminView/UserView/UserView';
 import Packages from './pages/Packages/Packages';
@@ -96,7 +96,7 @@ const AppContent = () => {
           <Route path='/about' element={<AboutMe />} />
           <Route path='/gallery/:albumId' element={<Gallery />} />
           <Route path='/contact' element={<Contact />} />
-          <Route path="/events" element={<Events />} />
+          <Route path="/events" element={<YourBookings />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/album" element={<AlbumList />} />
 

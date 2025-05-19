@@ -34,7 +34,7 @@ const Events = () => {
   const fetchUserBookings = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${url}/api/bookings/user/${userData.userID}`, {
+      const response = await axios.get(`${url}/api/bookings/user/${userData.id}`, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -499,9 +499,15 @@ const Events = () => {
             </div>
 
             <div className="detail-section payment-summary-section">
+            {selectedBooking.bookingStatus === 'Cancelled' && (
+                <div className="refund-notification">
+                  Please note: If a booking is canceled, the advanced payment of 20,000 LKR will not be returned. This is according to our cancelation policy.
+                </div>
+              )}
               <h3>Payment Summary</h3>
               <div className="detail-card">
                 <div className="payment-summary">
+                
                   <div className="payment-item">
                     <span className="payment-label">Total Amount:</span>
                     <span className="payment-value">LKR {parseFloat(selectedBooking.investedAmount).toLocaleString()}</span>
@@ -528,14 +534,9 @@ const Events = () => {
                     ></div>
                   </div>                </div>
               </div>
-                {selectedBooking.bookingStatus === 'Cancelled' && (
-                <div className="refund-notification">
-                  Please note: If a booking is canceled, the advanced payment of 20,000 LKR will not be returned. This is according to our cancelation policy.
-                </div>
-              )}
+                
             </div>            
-            
-            {parseFloat(selectedBooking.balanceAmount) > 0 && !paymentSuccess && (
+              {parseFloat(selectedBooking.balanceAmount) > 0 && !paymentSuccess && selectedBooking.bookingStatus !== 'Cancelled' && (
               <div className="detail-section make-payment-section">
                 <h3>Make a Payment</h3>
                 <div className="detail-card">

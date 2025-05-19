@@ -1,31 +1,36 @@
 // Booking.jsx
 import { useState, useEffect, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './Booking.css';
 import Footer from '../../components/Footer/Footer';
 import axios from 'axios';
 import { StoreContext } from '../../context/StoreContext';
-
-// The PACKAGE_DETAILS object will be replaced with data from the backend
+import { jwtDecode } from 'jwt-decode';
 
 const Booking = ({setShowLogin}) => {
   const { url } = useContext(StoreContext);
   const navigate = useNavigate();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredPackages, setFilteredPackages] = useState([]);
   const [packages, setPackages] = useState([]);
   
-  let PACKAGE_ARRAY = [];
-
   const [existingBookings, setExistingBookings] = useState([]);
   const [dateError, setDateError] = useState('');
   const [showDateError, setShowDateError] = useState(false);
   const [isDateAvailable, setIsDateAvailable] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize formData with credit card fields and bank transfer fields
+  const location = useLocation();
+  
+  // Add validation error state
+  const [validationErrors, setValidationErrors] = useState({
+    fullName: '',
+    billingMobile: ''
+  });
+
+  // Initialize formData with all necessary fields
   const [formData, setFormData] = useState({
     // Customer Details
     fullName: '',
@@ -63,6 +68,127 @@ const Booking = ({setShowLogin}) => {
     notes: ''
   });
 
+  const validateForm = () => {
+    let isValid = true;
+    const errors = {
+      fullName: '',
+      billingMobile: ''
+    };
+
+    // Name validation - only letters and spaces
+    const nameRegex = /^[a-zA-Z\s]+$/;
+    if (!nameRegex.test(formData.fullName)) {
+      errors.fullName = 'Full Name can only contain letters and spaces.';
+      isValid = false;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      alert('Please enter a valid email address.');
+      isValid = false;
+    }
+
+    // Mobile validation (allow common formats)
+    const cleaned = formData.billingMobile.replace(/\D/g, ''); // remove non-digit characters
+    if (cleaned.length !== 10) {
+      errors.billingMobile = 'Mobile number must contain exactly 10 digits.';
+      isValid = false;
+    }
+
+    // Update validation errors state
+    setValidationErrors(errors);
+    
+    return isValid;
+  }
+  
+  // Validate individual field on blur
+  const validateField = (name, value) => {
+    let error = '';
+    
+    if (name === 'fullName') {
+      const nameRegex = /^[a-zA-Z\s]+$/;
+      if (!nameRegex.test(value)) {
+        error = 'Full Name can only contain letters and spaces.';
+      }
+    } 
+    else if (name === 'billingMobile') {
+      const cleaned = formData.billingMobile.replace(/\D/g, ''); 
+      if (cleaned.length !== 10) {
+        error = 'Mobile number must contain exactly 10 digits.';
+      }
+
+      const mobileRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{3,4}[-\s.]?[0-9]{4,6}$/;
+      if (!mobileRegex.test(value)) {
+        error = 'Please enter a valid mobile number.';
+      }
+    }
+    
+    setValidationErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
+    
+    return error === '';
+  }
+  
+   // Function to check if user is logged in - ADDED IMPLEMENTATION
+  const checkLoginStatus = () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        // Verify the token is valid
+        const decodedToken = jwtDecode(token);
+        const currentTime = Date.now() / 1000;
+        
+        if (decodedToken.exp > currentTime) {
+          setIsLoggedIn(true);
+        } else {
+          // Token expired
+          setIsLoggedIn(false);
+          localStorage.removeItem('token');
+          localStorage.removeItem('userData');
+        }
+      } catch (error) {
+        console.error('Invalid token:', error);
+        setIsLoggedIn(false);
+        localStorage.removeItem('token');
+        localStorage.removeItem('userData');
+      }
+    } else {
+      setIsLoggedIn(false);
+    }
+  };
+
+  // function to fetch user data from the database
+  const fetchUserData = async (userId) => {
+    try {
+      setIsLoading(true);
+      const response = await axios.get(`${url}/api/user/${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      console.log('User data:', response.data);
+      
+      // Update form data with user information
+      if (response.data) {
+        setFormData(prevData => ({
+          ...prevData,
+          fullName: response.data.fullName || '',
+          email: response.data.email || '',
+          billingMobile: response.data.billingMobile || '',
+          billingAddress: response.data.billingAddress || ''
+        }));
+      }
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setIsLoading(false);
+    }
+  }
+
   // Fetch existing bookings for date validation
   const fetchExistingBookings = async () => {
     try {
@@ -73,14 +199,43 @@ const Booking = ({setShowLogin}) => {
     }
   };
 
-  // Call this function when component mounts
   useEffect(() => {
+    const userDataString = localStorage.getItem('userData');
+    console.log('User data from localStorage:', userDataString);
+    
+    if (userDataString) {
+        const userData = JSON.parse(userDataString);
+        fetchUserData(userData.id);
+    }
+    
+    checkLoginStatus();
     fetchPackages();
-    fetchExistingBookings(); // Add this new function call
-  }, []); 
+    fetchExistingBookings();
+    
+    // Add event listener for storage changes
+    window.addEventListener('storage', checkLoginStatus);
+    
+    // Clean up event listener
+    return () => {
+        window.removeEventListener('storage', checkLoginStatus);
+    };
+  }, [url]); // Added url as dependency
+
+  // Effect to ensure body scrolling is enabled when component mounts/unmounts
+  useEffect(() => {
+    // Enable scrolling when component mounts
+    document.body.style.overflow = 'auto';
+    
+    // Cleanup function to ensure scrolling is enabled when component unmounts
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, []);
 
   // Helper function to check if a date is in the past or today
   const isPastOrToday = (dateString) => {
+    if (!dateString) return false;
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0); 
 
@@ -114,23 +269,6 @@ const Booking = ({setShowLogin}) => {
     
     return !isBooked;
   };
-
-  useEffect(() => {
-    const checkLoginStatus = () => {
-      const token = localStorage.getItem('token');
-      setIsLoggedIn(!!token); // Convert to boolean
-    };
-
-    checkLoginStatus();
-    
-    // Add event listener for storage changes
-    window.addEventListener('storage', checkLoginStatus);
-    
-    // Clean up event listener
-    return () => {
-      window.removeEventListener('storage', checkLoginStatus);
-    };
-  }, []);
 
   // Update selectedPackage when packageName changes
   useEffect(() => {
@@ -172,17 +310,19 @@ const Booking = ({setShowLogin}) => {
 
   const fetchPackages = async () => {
     try {
-    const response = await axios.get(`${url}/api/packages`);
-    // Turn the object into an array
-    PACKAGE_ARRAY = Object.entries(response.data).map(([key, pkg]) => ({
-      key,
-      ...pkg
-    }));
-    setPackages(PACKAGE_ARRAY);
+      const response = await axios.get(`${url}/api/packages`);
+      const packageArray = Object.entries(response.data).map(([key, pkg]) => ({
+        key,
+        ...pkg
+      }));
+      setPackages(packageArray);
+      return packageArray;
     } catch (error) {
-    console.error('Error fetching packages:', error);
+      console.error('Error fetching packages:', error);
+      return [];
     }
   }; 
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
 
@@ -219,6 +359,20 @@ const Booking = ({setShowLogin}) => {
       ...prevData,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Clear validation error when field is being edited
+    if (name === 'fullName' || name === 'billingMobile') {
+      setValidationErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+  
+  // Handle field blur for validation
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    validateField(name, value);
   };
   
   const handleSearchChange = (e) => {
@@ -235,54 +389,14 @@ const Booking = ({setShowLogin}) => {
     // Clear the search
     setSearchTerm('');
   };
-  const nextTab = () => {
-    // If we're on the Event Details tab (tab 1) and moving forward
-    if (activeTab === 1) {
-      // Only for non-Pencil bookings that require dates
-      if (formData.bookingStatus !== 'Pencil') {
-        // Check if date is selected
-        if (!formData.eventDate) {
-          alert('Please select an event date.');
-          return;
-        }
-        
-        // Check if selected date is valid (not past or already booked)
-        if (isPastOrToday(formData.eventDate)) {
-          alert('Please select a future date. Past dates are not available for booking.');
-          return;
-        }
-        
-        // Check if date is available (not already booked)
-        if (!isDateAvailable) {
-          alert('This date is already booked. Please select an available date before proceeding.');
-          return;
-        }
-      }
-    }
-    
-    // Original next tab logic
-    if (activeTab < 4) {
-      setActiveTab(activeTab + 1);
-    }
-  };
-
-
-  const prevTab = () => {
-    if (activeTab > 0) {
-      setActiveTab(activeTab - 1);
-    }
-  };
-
   const calculateTotal = (bookingStatus) => {
     let basePrice = 0;
     // This is a placeholder function - implement your actual pricing logic
     if(selectedPackage){
-      if(bookingStatus === 'Pencil') {
-        basePrice = 0; // No payment for Pencil booking
-      } else if(bookingStatus === 'Pending') {
+      if(bookingStatus === 'Pending') {
         basePrice = 20000; 
       }
-      else if(bookingStatus === 'Confirm') {
+      else if(bookingStatus === 'Confirmed') {
         basePrice = selectedPackage.investedAmount; // Full payment
       } else {
         basePrice = selectedPackage.investedAmount; // Default to full payment
@@ -290,103 +404,112 @@ const Booking = ({setShowLogin}) => {
     }
     return basePrice.toString();
   };
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      const packageData = await fetchPackages();
+      setIsLoading(false);
+      
+      // Now that packages are loaded, check if we have a package in location state
+      if (location.state && location.state.packageData) {
+        const selectedPkg = location.state.packageData;
+        console.log("Selected package from location:", selectedPkg);
+        
+        // Find the corresponding package in the packages array
+        const matchedPackage = packageData.find(pkg => 
+          pkg.packageId === selectedPkg.packageId || 
+          pkg.packageId === selectedPkg.id
+        );
+        
+        if (matchedPackage) {
+          console.log("Found matching package:", matchedPackage);
+          setFormData(prevData => ({
+            ...prevData,
+            packageName: matchedPackage.key,
+            packageId: matchedPackage.packageId,
+            eventType: matchedPackage.eventName || selectedPkg.eventName || '',
+            coverageHours: matchedPackage.coverageHours || selectedPkg.coverageHours || ''
+          }));
+          
+          // Set selectedPackage directly to ensure it's displayed
+          setSelectedPackage(matchedPackage);
+        } else {
+          console.log("No matching package found in loaded packages");
+        }
+      }
+    };
+    
+    loadData();
+  }, [url, location.state]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // For non-Pencil bookings, validate date availability again
-    if (formData.bookingStatus !== 'Pencil') {
-      // Check if date is selected
-      if (!formData.eventDate) {
-        alert('Please select an event date.');
-        setActiveTab(1); // Go back to the Event Details tab
-        return;
-      }
-      
-      // Check if selected date is in the past
-      if (isPastOrToday(formData.eventDate)) {
-        alert('Please select a future date. Past dates are not available for booking.');
-        setActiveTab(1); // Go back to the Event Details tab
-        return;
-      }
-      
-      // Check if the date is already booked
-      if (!isDateAvailable) {
-        alert('This date is already booked. Please select a different date.');
-        setActiveTab(1); // Go back to the Event Details tab
-        return;
-      }
+    // Validate the form
+    if (!validateForm()) {
+      // Don't submit if validation fails
+      return;
+    }
+
+    // Validate date availability
+    // Check if date is selected
+    if (!formData.eventDate) {
+      alert('Please select an event date.');
+      return;
+    }
+    
+    // Check if selected date is in the past
+    if (isPastOrToday(formData.eventDate)) {
+      alert('Please select a future date. Past dates are not available for booking.');
+      return;
+    }
+    
+    // Check if the date is already booked
+    if (!isDateAvailable) {
+      alert('This date is already booked. Please select a different date.');
+      return;
     }
     
     try {
-      if(formData.bookingStatus === 'Pencil') {
-        // Prepare the data for pending booking
-        const pendingBookingData = {
-          fullName: formData.fullName,
-          email: formData.email,
-          billingMobile: formData.billingMobile,
-          billingAddress: formData.billingAddress,
-          packageId: formData.packageId,
-          packageName: formData.packageName,
-          bookingStatus: formData.bookingStatus,
-          notes: formData.notes
-        };
-          const response = await fetch(`${url}/api/bookings/createPending`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}` // Add token for authentication
-          },
-          body: JSON.stringify(pendingBookingData),
-        });
-        
-        if (response.ok) {
-          console.log('Pencil booking submitted successfully!');
-          navigate('/booking-success', { state: { bookingData: pendingBookingData } });
-        } else {
-          alert('Failed to submit pencil booking. Please try again.');
+      // Handle bookings with payment
+      // Create FormData object instead of JSON
+      const formDataToSubmit = new FormData();
+      
+      const totalAmount = calculateTotal(formData.bookingStatus);
+
+      // Add all the form fields to the FormData
+      Object.keys(formData).forEach(key => {
+        // Skip bankReceiptImage as it's handled separately
+        if (key !== 'bankReceiptImage') {
+          formDataToSubmit.append(key, formData[key]);
         }
+      });
+      
+      // Add the calculated total to form data
+      formDataToSubmit.append('totalAmount', totalAmount);
+
+      // Add the file if it exists
+      if (formData.bankReceiptImage && formData.paymentMethod === 'bankTransfer') {
+        formDataToSubmit.append('bankReceiptImage', formData.bankReceiptImage);
+      }
+      
+      console.log('Data to submit:', Object.fromEntries(formDataToSubmit));
+      // Update the fetch call to not set Content-Type header (browser will set it with boundary)
+      const response = await fetch(`${url}/api/bookings/create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}` // Keep only the auth header
+        },
+        body: formDataToSubmit, // Send the FormData object directly
+      });
+      
+      if (response.ok) {
+        console.log('Booking submitted successfully!');
+        // Redirect to payment processing page
+        navigate('/payment-success', { state: { bookingData: Object.fromEntries(formDataToSubmit) } });
       } else {
-        // Handle regular bookings with payment\
-        // Create FormData object instead of JSON
-        const formDataToSubmit = new FormData();
-        
-        const totalAmount = calculateTotal(formData.bookingStatus);
-
-        // Add all the form fields to the FormData
-        Object.keys(formData).forEach(key => {
-          // Skip bankReceiptImage as it's handled separately
-          if (key !== 'bankReceiptImage') {
-            formDataToSubmit.append(key, formData[key]);
-          }
-        });
-        
-        // Add the calculated total to form data
-        formDataToSubmit.append('totalAmount', totalAmount);
-
-          // Add the file if it exists
-        if (formData.bankReceiptImage && formData.paymentMethod === 'bankTransfer') {
-          formDataToSubmit.append('bankReceiptImage', formData.bankReceiptImage);
-        }
-        
-        console.log('Data to submit:', Object.fromEntries(formDataToSubmit));
-        // Update the fetch call to not set Content-Type header (browser will set it with boundary)
-        const response = await fetch(`${url}/api/bookings/create`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}` // Keep only the auth header
-          },
-          body: formDataToSubmit, // Send the FormData object directly
-        });
-        
-        if (response.ok) {
-          console.log('Booking submitted successfully!');
-          // Redirect to payment processing page
-          navigate('/payment-success', { state: { bookingData: Object.fromEntries(formDataToSubmit) } });
-        } else {
-          alert('Failed to submit booking. Please try again.');
-          console.error('Error response:', await response.json());
-        }
+        alert('Failed to submit booking. Please try again.');
+        console.error('Error response:', await response.json());
       }
     } catch (error) {
       console.error('Error submitting form:', error);
@@ -407,19 +530,6 @@ const Booking = ({setShowLogin}) => {
     </div>
   );
 
-  const tabTitles = [
-    "1. Customer Details",
-    "2. Event Details",
-    "3. Package Details",
-    "4. Payment",
-    "5. Review & Submit"
-  ];
-
-  useEffect(() => {
-          fetchPackages();
-      }, []);
-
-
   return (
     <div className='booking-container2'>
       <div className="booking-container">
@@ -430,465 +540,365 @@ const Booking = ({setShowLogin}) => {
         
         {isLoggedIn ? (
           // Show booking form if user is logged in
-          <div className="tabbed-form-container">
-            <div className="tab-navigation">
-              {tabTitles.map((title, index) => (
-                <div 
-                  key={index}
-                  className={`tab-item ${activeTab === index ? 'active' : ''}`}
-                  onClick={() => setActiveTab(index)}
-                >
-                  {title}
-                </div>
-              ))}
-            </div>
-            
+          <div className="single-page-form-container">
+          {isLoading ? (
+              <div className="loading-container">
+                <div className="loading-spinner"></div>
+                <p>Loading your information...</p>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="booking-form">
-              {/* Tab 1: Customer Details */}
-              {activeTab === 0 && (
-                <div className="tab-content">
-                  <h3>Customer Details</h3>
-                  
+              {/* Customer Details Section */}
+              <div className="form-section">
+                <h3 className="section-title">Customer Details</h3>
+                <div className="form-row">
                   <div className="form-group">
-                    <label>Full Name</label>
+                    <label>Full Name*</label>
                     <input
                       type="text"
                       name="fullName"
                       value={formData.fullName}
                       onChange={handleChange}
-                      placeholder="Your Name"
+                      onBlur={handleBlur}
+                      placeholder="Enter your full name"
+                      className={validationErrors.fullName ? 'error-input' : ''}
                       required
                     />
+                    {validationErrors.fullName && (
+                      <div className="error-message">{validationErrors.fullName}</div>
+                    )}
                   </div>
 
                   <div className="form-group">
-                    <label>Email</label>
+                    <label>Email*</label>
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
-                      placeholder="Email"
+                      placeholder="Enter your email address"
                       required
+                      readOnly
                     />
                   </div>
+                </div>
 
+                <div className="form-row">
                   <div className="form-group">
-                    <label>Mobile</label>
+                    <label>Mobile*</label>
                     <input
                       type="tel"
                       name="billingMobile"
                       value={formData.billingMobile}
                       onChange={handleChange}
-                      placeholder="Mobile"
+                      onBlur={handleBlur}
+                      placeholder="Enter your mobile number"
+                      className={validationErrors.billingMobile ? 'error-input' : ''}
                       required
                     />
+                    {validationErrors.billingMobile && (
+                      <div className="error-message">{validationErrors.billingMobile}</div>
+                    )}
                   </div>
                   
                   <div className="form-group">
-                    <label>Billing Address</label>
-                    <textarea
+                    <label>Billing Address*</label>
+                    <input
+                      type="text"
                       name="billingAddress"
                       value={formData.billingAddress}
                       onChange={handleChange}
-                      placeholder="Billing Address"
-                      rows="3"
+                      placeholder="Enter your billing address"
                       required
-                    ></textarea>
+                    />
                   </div>
                 </div>
-              )}
+              </div>
               
-              {/* Tab 2: Event Details */}
-              {activeTab === 1 && (
-                <div className="tab-content">
-                  <h3>Event Details</h3>
+              {/* Package Selection Section */}
+              <div className="form-section">
+                <h3 className="section-title">Package Selection</h3>
+                  
+                {/* Package Search */}
+                <div className="form-group">
+                  <label>Search Packages</label>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    placeholder="Search by package name or event type..."
+                    className="search-input"
+                  />
+                </div>
+                
+                {/* Search Results */}
+                {searchTerm && filteredPackages.length > 0 && (
+                  <div className="search-results">
+                    <h4>Available Packages</h4>
+                    <div className="search-results-list">
+                      {filteredPackages.map((pkg) => (
+                        <div 
+                          key={pkg.key} 
+                          className="search-result-item"
+                          onClick={() => selectPackageFromSearch(pkg.key)}
+                        >
+                          <div className="search-result-name">{pkg.packageName}</div>
+                          <div className="search-result-event">Event: {pkg.eventName}</div>
+                          <div className="search-result-price">₹{pkg.investedAmount}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {searchTerm && filteredPackages.length === 0 && (
+                  <div className="no-results">No packages found matching "{searchTerm}"</div>
+                )}
+                
+                <div className="form-group">
+                  <label htmlFor='packageSelection'>Select Package*</label>
+                  <select
+                    id='packageSelection'
+                    name="packageName"
+                    value={formData.packageName}
+                    onChange={handleChange}
+                    required>
+                    <option value="">Choose a photography package</option>
+                    {packages.map((pkg) => (
+                      <option 
+                        key={pkg.key} 
+                        value={pkg.key}
+                      >
+                        {pkg.packageName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                  <div className="form-group">
-                    <label>Booking Type</label>
-                    <select
-                      name="bookingStatus"
-                      value={formData.bookingStatus}
-                      onChange={handleChange}
-                      required
-                    >
-                      <option value="">Select Booking Type</option>
-                      <option value="Pencil">Pencil Booking (No deposit)</option>
-                      <option value="Pending">Pending Booking (Rs 20,000 deposit)</option>
-                      <option value="Confirmed">Confim Booking (100%)</option>
-                    </select>
+                {/* Show package details if a package is selected */}
+                {selectedPackage && (
+                  <div className="package-details-container">
+                    <div className="package-modal-content">
+                      <p><strong>Coverage Hours:</strong> {selectedPackage.coverageHours}</p>
+                      <p><strong>Investment:</strong> LKR {selectedPackage.investedAmount}</p>
+                      <p><strong>Package Items:</strong></p>
+                      <ul>
+                        {selectedPackage.items && selectedPackage.items.split(';').map((item, index) => (
+                          <li key={index}>{item.trim()}</li>
+                        ))}
+                      </ul>
+
+                      <p><strong>Package Details:</strong></p>
+                      <ul>
+                        {selectedPackage.details && selectedPackage.details.split(';').map((detail, index) => (
+                          <li key={index}>{detail.trim()}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Booking Options Section */}
+              <div className="form-section">
+                <h3 className="section-title">Booking Options</h3>                <div className="form-group">
+                  <label>Booking Type*</label>
+                  <select
+                    name="bookingStatus"
+                    value={formData.bookingStatus}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Select Booking Type</option>
+                    <option value="Pending">Pending Booking (Rs 20,000 deposit)</option>
+                    <option value="Confirmed">Confirm Booking (100%)</option>
+                  </select>
+                </div>
+                  {/* Event Details */}
+                <div className="event-details-container">
+                  <h4>Event Details</h4>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Event Date*</label>
+                      <input
+                        type="date"
+                        name="eventDate"
+                        value={formData.eventDate}
+                        onChange={handleChange}
+                        className={!isDateAvailable ? 'date-error' : ''}
+                        required
+                      />
+                      {dateError && <div className="error-message">{dateError}</div>}
+                    </div>
+                  
+                    <div className="form-group">
+                      <label>Event Time*</label>
+                      <input
+                        type="time"
+                        name="eventTime"
+                        value={formData.eventTime}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
                   </div>
                   
-                  { formData.bookingStatus !== 'Pencil' && (
-                    <>                    <div className="form-group">
-                    <label>Event Date</label>
-                    <input
-                      type="date"
-                      name="eventDate"
-                      value={formData.eventDate}
-                      onChange={handleChange}
-                      className={!isDateAvailable ? 'date-error' : ''}
-                      required
-                    />
-                    <br/>
-                    {dateError && <div className="error-message">{dateError}</div>}
-                  </div>
-                  
                   <div className="form-group">
-                    <label>Event Time</label>
-                    <input
-                      type="time"
-                      name="eventTime"
-                      value={formData.eventTime}
-                      onChange={handleChange}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>Venue</label>
+                    <label>Venue*</label>
                     <input
                       type="text"
                       name="venue"
                       value={formData.venue}
                       onChange={handleChange}
-                      placeholder="Venue Address"
+                      placeholder="Enter event venue address"
                       required
                     />
                   </div>
-                    </>
-                  )}
-                  {/* Show message explaining no payment for Pencil booking */}
-                  {formData.bookingStatus === 'Pencil' && (
-                    <div className="Pencil-booking-message">
-                      <p>No Event Details Required.</p>
-                    </div>
-                  )}
                 </div>
-              )}
-              
-              {/* Tab 3: Package Details */}
-              {activeTab === 2 && (
-                <div className="tab-content">
-                  <h3>Package Details</h3>
-                  
-                  {/* Package Search */}
-                  <div className="form-group">
-                    <label>Search Packages</label>
-                    <input
-                      type="text"
-                      value={searchTerm}
-                      onChange={handleSearchChange}
-                      placeholder="Search by package name or event type..."
-                      className="search-input"
-                    />
-                  </div>
-                  
-                  {/* Search Results */}
-                  {searchTerm && filteredPackages.length > 0 && (
-                    <div className="search-results">
-                      <h4>Available Packages</h4>
-                      <div className="search-results-list">
-                        {filteredPackages.map((pkg) => (
-                          <div 
-                            key={pkg.key} 
-                            className="search-result-item"
-                            onClick={() => selectPackageFromSearch(pkg.key)}
-                          >
-                            <div className="search-result-name">{pkg.packageName}</div>
-                            <div className="search-result-event">Event: {pkg.eventName}</div>
-                            <div className="search-result-price">₹{pkg.investedAmount}</div>
-                          </div>
-                        ))}
+              </div>
+                {/* Payment Section */}
+              <div className="form-section">
+                <h3 className="section-title">Payment Details</h3>
+                
+                <div className="form-group price-display">
+                  <label>Total Amount</label>
+                  <div className="price-box">LKR {calculateTotal(formData.bookingStatus)}</div>
+                </div>
+                
+                <div className="form-group">
+                  <label>Payment Method*</label>
+                  <select
+                    name="paymentMethod"
+                    value={formData.paymentMethod}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Select Payment Method</option>
+                    <option value="creditCard">Credit Card</option>
+                    <option value="bankTransfer">Bank Transfer</option>
+                  </select>
+                </div>
+
+                  {/* Credit Card Details - Conditional Rendering */}
+                  {formData.paymentMethod === 'creditCard' && (
+                    <div className="credit-card-details">
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Card Number*</label>
+                          <input
+                            type="text"
+                            name="cardNumber"
+                            value={formData.cardNumber}
+                            onChange={handleChange}
+                            placeholder="Enter card number"
+                            required
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label>Cardholder Name*</label>
+                          <input
+                            type="text"
+                            name="cardholderName"
+                            value={formData.cardholderName}
+                            onChange={handleChange}
+                            placeholder="Enter name on card"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Expiry Date*</label>
+                          <input
+                            type="text"
+                            name="expiryDate"
+                            value={formData.expiryDate}
+                            onChange={handleChange}
+                            placeholder="MM/YY"
+                            required
+                          />
+                        </div>
+
+                        <div className="form-group cvv-group">
+                          <label>CVV*</label>
+                          <input
+                            type="text"
+                            name="cvv"
+                            value={formData.cvv}
+                            onChange={handleChange}
+                            placeholder="CVV"
+                            required
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
                   
-                  {searchTerm && filteredPackages.length === 0 && (
-                    <div className="no-results">No packages found matching "{searchTerm}"</div>
-                  )}
-                  
-                  <div className="form-group">
-                    <label htmlFor='packageSelection'>Package Selection</label>
-                    <select
-                      id='packageSelection'
-                      name="packageName"
-                      value={formData.packageName}
-                      onChange={handleChange}
-                      required>
-                        <option value="">Select Package</option>
-                        {packages.map((pkg) => (
-                          <option 
-                            key={pkg.key} 
-                            value={pkg.key}
-                          >
-                            {pkg.packageName}
-                          </option>
-                        ))}
-                      </select>
-                  </div>
-
-                  {/* Only show package details if a package is selected */}
-                  {selectedPackage && (
-                    <div className="form-group">
-                      <div className="package-modal-content">
-                        <p><strong>Coverage Hours:</strong> {selectedPackage.coverageHours}</p>
-                        <p><strong>Investment:</strong> LKR {selectedPackage.investedAmount}</p>
-                        <p><strong>Package Items:</strong></p>
-                        <ul>
-                          {selectedPackage.items && selectedPackage.items.split(';').map((item, index) => (
-                            <li key={index}>{item.trim()}</li>
-                          ))}
-                        </ul>
-
-                        <p><strong>Package Details:</strong></p>
-                        <ul>
-                          {selectedPackage.details && selectedPackage.details.split(';').map((detail, index) => (
-                            <li key={index}>{detail.trim()}</li>
-                          ))}
-                        </ul>
+                  {/* Bank Transfer Details - Conditional Rendering */}
+                  {formData.paymentMethod === 'bankTransfer' && (
+                    <div className="bank-transfer-details">
+                      <div className="bank-account-info">
+                        <h4>Bank Account Details</h4>
+                        <div className="bank-info-container">
+                          <p><strong>Account Name:</strong> Pathum L Weerasighe Photography</p>
+                          <p><strong>Bank Name:</strong> Bank of Ceylon</p>
+                          <p><strong>Account Number:</strong> 85471234</p>
+                          <p><strong>Branch:</strong> Kegalle Branch</p>
+                          <p className="bank-transfer-note">Please make the payment and upload the receipt below. Include your name or booking date as reference.</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Tab 4: Payment Details */}
-              {activeTab === 3 && (
-                <div className="tab-content">
-                  <h3>Payment Details</h3>
-                  
-                  <div className="form-group price-display">
-                    <label>Total Amount</label>
-                    <div className="price-box"> LKR {calculateTotal(formData.bookingStatus)}</div>
-                  </div>
-                  
-                  
-                  
-                  {/* Only show payment method if booking type is NOT Pencil */}
-                  {formData.bookingStatus !== 'Pencil' && (
-                    <>
+
                       <div className="form-group">
-                        <label>Payment Method</label>
-                        <select
-                          name="paymentMethod"
-                          value={formData.paymentMethod}
+                        <label>Receipt Reference Number*</label>
+                        <input
+                          type="text"
+                          name="bankReceiptRef"
+                          value={formData.bankReceiptRef}
                           onChange={handleChange}
-                          required={formData.bookingStatus !== 'Pencil'}
-                        >
-                          <option value="">Select Payment Method</option>
-                          <option value="creditCard">Credit Card</option>
-                          <option value="bankTransfer">Bank Transfer</option>
-                        </select>
+                          placeholder="Enter bank transfer reference number"
+                          required
+                        />
                       </div>
 
-                      {/* Credit Card Details - Conditional Rendering */}
-                      {formData.paymentMethod === 'creditCard' && (
-                        <div className="credit-card-details">
-                          <div className="form-group">
-                            <label>Card Number</label>
-                            <input
-                              type="text"
-                              name="cardNumber"
-                              value={formData.cardNumber}
-                              onChange={handleChange}
-                              placeholder="Card Number"
-                              required={formData.bookingStatus !== 'Pencil' && formData.paymentMethod === 'creditCard'}
-                            />
-                          </div>
-
-                          <div className="form-group">
-                            <label>Cardholder Name</label>
-                            <input
-                              type="text"
-                              name="cardholderName"
-                              value={formData.cardholderName}
-                              onChange={handleChange}
-                              placeholder="Cardholder Name"
-                              required={formData.bookingStatus !== 'Pencil' && formData.paymentMethod === 'creditCard'}
-                            />
-                          </div>
-
-                          <div className="form-group">
-                            <label>Expiry Date</label>
-                            <input
-                              type="text"
-                              name="expiryDate"
-                              value={formData.expiryDate}
-                              onChange={handleChange}
-                              placeholder="MM/YY"
-                              required={formData.bookingStatus !== 'Pencil' && formData.paymentMethod === 'creditCard'}
-                            />
-                          </div>
-
-                          <div className="form-group">
-                            <label>CVV</label>
-                            <input
-                              type="text"
-                              name="cvv"
-                              value={formData.cvv}
-                              onChange={handleChange}
-                              placeholder="CVV"
-                              required={formData.bookingStatus !== 'Pencil' && formData.paymentMethod === 'creditCard'}
-                            />
-                          </div>
-                        </div>
-                      )}                      {/* Bank Transfer Details - Conditional Rendering */}
-                      {formData.paymentMethod === 'bankTransfer' && (
-                        <div className="bank-transfer-details">
-                          <div className="bank-account-info">
-                            <h4>Bank Account Details</h4>
-                            <div className="bank-info-container">
-                              <p><strong>Account Name:</strong> Pathum L Weerasighe Photography</p>
-                              <p><strong>Bank Name:</strong> Bank of Ceylon</p>
-                              <p><strong>Account Number:</strong> 85471234</p>
-                              <p><strong>Branch:</strong> Kegalle Branch</p>
-                              <p className="bank-transfer-note">Please make the payment and upload the receipt below. Include your name or booking date as reference.</p>
-                            </div>
-                          </div>
-
-                          <div className="form-group">
-                            <label>Receipt Reference Number</label>
-                            <input
-                              type="text"
-                              name="bankReceiptRef"
-                              value={formData.bankReceiptRef}
-                              onChange={handleChange}
-                              placeholder="Reference Number"
-                              required={formData.bookingStatus !== 'Pencil' && formData.paymentMethod === 'bankTransfer'}
-                            />
-                          </div>
-
-                          <div className="form-group">
-                            <label>Upload Receipt Image</label>
-                            <input
-                              type="file"
-                              name="bankReceiptImage"
-                              onChange={(e) => setFormData({ 
-                                ...formData, 
-                                bankReceiptImage: e.target.files[0]  // Store the actual file object
-                              })}
-                              accept="image/*"
-                            />
-                          </div>
-                          
-                        </div>
-                      )}
-                    </>
-                  )}
-                  
-                  {/* Show message explaining no payment for Pencil booking */}
-                  {formData.bookingStatus === 'Pencil' && (
-                    <div className="Pencil-booking-message">
-                      <p>No payment is required for Pencil Booking. This booking will be held temporarily without a deposit.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {/* Tab 5: Review & Submit */}
-              {activeTab === 4 && (
-                <div className="tab-content">
-                  <h3>Review & Submit</h3>
-                  
-                  <div className="review-container">
-                    <div className="review-section">
-                      <h4>Customer Details</h4>
-                      <div className="review-item"><strong>Name:</strong> {formData.fullName}</div>
-                      <div className="review-item"><strong>Email:</strong> {formData.email}</div>
-                      <div className="review-item"><strong>Mobile:</strong> {formData.billingMobile}</div>
-                      <div className="review-item"><strong>Billing Address:</strong> {formData.billingAddress}</div>
-                    </div>
-                    
-                    <hr className="review-divider" />
-                    {formData.bookingStatus !== 'Pencil' && (
-                      <>
-                      <div className="review-section">
-                      <h4>Event Details</h4>
-                      <div className="review-item"><strong>Date:</strong> {formData.eventDate}</div>
-                      <div className="review-item"><strong>Time:</strong> {formData.eventTime}</div>
-                      <div className="review-item"><strong>Venue:</strong> {formData.venue}</div>
+                      <div className="form-group">
+                        <label>Upload Receipt Image*</label>
+                        <input
+                          type="file"
+                          name="bankReceiptImage"
+                          onChange={(e) => setFormData({ 
+                            ...formData, 
+                            bankReceiptImage: e.target.files[0]  // Store the actual file object
+                          })}
+                          accept="image/*"
+                          required
+                        />
                       </div>
-                    
-                      <hr className="review-divider" />
-                      </>
-                    )}
-                    
-                    <div className="review-section">
-                      <h4>Package Details</h4>
-                      <div className="review-item"><strong>Package:</strong> {selectedPackage ? selectedPackage.packageName : ''}</div>
-                      <div className="review-item"><strong>Event Type:</strong> {selectedPackage ? selectedPackage.eventName : formData.eventType}</div>
-                      <div className="review-item"><strong>Coverage Hours:</strong> {selectedPackage ? selectedPackage.coverageHours : formData.coverageHours}</div>
-                    </div>
-                    
-                    <hr className="review-divider" />
-                    
-                    <div className="review-section">
-                      <h4>Payment Details</h4>
-                      <div className="review-item"><strong>Total Amount:</strong> LKR {calculateTotal(formData.bookingStatus)}</div>
-                      
-                      {formData.bookingStatus === 'Pencil' && (
-                        <>
-                          <div className="review-item"><strong>Payment Amount:</strong> No Payment</div>
-                        </>
-                      )}
-                      
-                      {formData.bookingStatus === 'Pending' && (
-                        <>
-                          <div className="review-item"><strong>Payment Amount:</strong> LKR 20,000</div>
-                          <div className="review-item"><strong>Balance:</strong> LKR {calculateTotal(formData.bookingStatus) - 20000}</div>
-                        </>
-                      )}
-                      
-                      {formData.bookingStatus === 'Confirmed' && (
-                        <div className="review-item"><strong>Payment Amount:</strong> LKR {calculateTotal(formData.bookingStatus)} (Full Payment)</div>
-                      )}
-                      
-                      <div className="review-item"><strong>Booking Type:</strong> {
-                        formData.bookingStatus === 'Pencil' ? 'Pencil Booking (No deposit)' :
-                        formData.bookingStatus === 'Pending' ? 'Pending Booking (Rs 20,000 deposit)' :
-                        formData.bookingStatus === 'Confirmed' ? 'Confirm Booking (100%)' : ''
-                      }</div>
-                      <div className="review-item"><strong>Payment Method:</strong> {
-                        formData.paymentMethod === 'creditCard' ? 'Credit Card' :
-                        formData.paymentMethod === 'bankTransfer' ? 'Bank Transfer' : 'None'
-                      }</div>
-                    </div>
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>Additional Notes</label>
-                    <textarea
-                      name="notes"
-                      value={formData.notes}
-                      onChange={handleChange}
-                      placeholder="Any additional requirements or notes"
-                      rows="2"
-                    ></textarea>
-                  </div>
+                    </div>                  )}
                 </div>
-              )}
               
-              <div className="tab-navigation-buttons">
-                {activeTab > 0 && (
-                  <button type="button" className="prev-btn" onClick={prevTab}>
-                    Previous
-                  </button>
-                )}
-                
-                {activeTab < 4 && (
-                  <button type="button" className="next-btn" onClick={nextTab}>
-                    Next
-                  </button>
-                )}
-                
-                {activeTab === 4 && (
-                  <button type="submit" className="submit-btn">
-                    {formData.bookingStatus === 'Pencil' ? 'Confirm Pencil Booking' : 'Confirm & Proceed to Payment'}
-                  </button>
-                )}
+              {/* Additional Notes Section */}
+              <div className="form-section">
+                <h3 className="section-title">Additional Notes</h3>
+                <div className="form-group">
+                  <label>Notes (Optional)</label>
+                  <textarea
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleChange}
+                    placeholder="Any additional requirements or special requests"
+                    rows="3"
+                  ></textarea>
+                </div>
+              </div>                {/* Submit Button */}
+              <div className="form-submit">
+                <button type="submit" className="submit-btn">
+                  Confirm & Process Payment
+                </button>
               </div>
             </form>
+          )}
           </div>
         ) : (
           // Show login notification if user is not logged in

@@ -65,7 +65,11 @@ const Navbar = ({ setShowLogin }) => {
         setIsPhotographer(false);
         setShowDropdown(false);
         setIsMobileMenuOpen(false);
-        navigate('/');
+        navigate('/', { replace: true });
+        // Add a small delay before reloading to ensure navigation completes
+        setTimeout(() => {
+            window.location.reload();
+        }, 30);
     }
 
     const handleMenuClick = (route) => {

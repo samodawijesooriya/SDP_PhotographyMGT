@@ -13,7 +13,10 @@ import {
     createPackageDetails,
     getPackageFormData,
     createPackageEvents,
-    createPackageItems
+    createPackageItems,
+    getPackageByEventType,
+    createCustomPackage,
+    getUserCustomPackages
 } from '../controllers/packageController.js';
 
 
@@ -25,6 +28,8 @@ packageRouter.get('/', getAllPackages);
 // get package by ID
 packageRouter.get('/:packageId', getPackageById);
 
+packageRouter.get('/base/:eventType', getPackageByEventType);
+
 // fetch events
 packageRouter.get('/pkg/events', getEvents);
 
@@ -32,7 +37,12 @@ packageRouter.get('/pkg/events', getEvents);
 packageRouter.get('/pkg/tiers', getPackageTiers);
 
 // fetch package items
-packageRouter.get('/pkg/items', getPackageItems);   
+packageRouter.get('/pkg/items', getPackageItems); 
+
+packageRouter.post('/custom/create', createCustomPackage)
+
+// get user custom package form data
+packageRouter.get('/custom/get/:userId', getUserCustomPackages);
 
 // fetch package details
 packageRouter.get('/pkg/details', getPackageDetails);

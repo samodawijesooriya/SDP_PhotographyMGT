@@ -28,10 +28,44 @@ const ManagePackages = () => {
     const [isAddingNew, setIsAddingNew] = useState(false);
     const [successAlert, setSuccessAlert] = useState(null);
     const [alertType, setAlertType] = useState('success');
-
-    const [eventModalOpen, setEventModalOpen] = useState(false);
+    const [totalInvestment, setTotalInvestment] = useState(0);    const [eventModalOpen, setEventModalOpen] = useState(false);
     const [itemModalOpen, setItemModalOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
+
+    const [activeTab, setActiveTab] = useState('all');
+
+    // Calculate the total investment amount based on selected items and details
+    const calculateTotalInvestment = () => {
+        let total = 0;
+        
+        // Calculate price from selected items
+        if (selectedItems && selectedItems.length > 0) {
+            selectedItems.forEach(item => {
+                const itemData = packageItems.find(i => i.itemId === item.itemId);
+                if (itemData) {
+                    const itemPrice = parseFloat(itemData.pricePerItem) || 0;
+                    const itemTotal = itemPrice * item.quantity;
+                    total += itemTotal;
+                    console.log(`Item: ${itemData.itemType}, Qty: ${item.quantity}, Price: ${itemPrice}, Total: ${itemTotal}`);
+                }
+            });
+        }
+        
+        // Add price for all details
+        if (selectedDetails && selectedDetails.length > 0) {
+            selectedDetails.forEach(detail => {
+                const detailData = packageDetails.find(d => d.detailId === detail.detailId);
+                if (detailData) {
+                    const detailPrice = parseFloat(detailData.pricePerDetail) || 0;
+                    total += detailPrice;
+                    console.log(`Detail: ${detailData.detailDescription}, Price: ${detailPrice}`);
+                }
+            });
+        }
+        
+        console.log("Final calculated investment:", total);
+        return total;
+    };
 
     // Fetch functions
     const fetchPackages = async () => {
@@ -87,15 +121,28 @@ const ManagePackages = () => {
         } catch (error) {
             console.error('Error fetching package details:', error);
         }
-    };
-
-    useEffect(() => {
+    };    useEffect(() => {
         fetchPackages();
         fetchEvents();
         fetchPackageTiers();
         fetchPackageItems();
         fetchPackageDetails();
     }, []);
+    
+    // Effect to calculate investment amount when items or details change
+    useEffect(() => {
+        // Only calculate if we're in edit mode or adding a new package
+        if ((isEditMode || isAddingNew) && packageItems.length > 0 && packageDetails.length > 0) {
+            // Short delay to ensure DOM is ready
+            setTimeout(() => {
+                const investedAmountInput = document.getElementById('investedAmount');
+                if (investedAmountInput) {
+                    const calculatedAmount = calculateTotalInvestment();
+                    investedAmountInput.value = calculatedAmount.toFixed(2);
+                }
+            }, 100);
+        }
+    }, [selectedItems, selectedDetails, isEditMode, isAddingNew, packageItems, packageDetails]);
 
     // Alert handling
     const showSuccessAlert = (message, type = 'success') => {
@@ -106,17 +153,41 @@ const ManagePackages = () => {
         }, 5000);
     };
 
-    // Form handling
+    // create a tabs
+    const PackageTabs = ({ activeTab, setActiveTab }) => {
+    return (
+        <div className="package-tabs">
+        <button 
+            className={`tab-button ${activeTab === 'all' ? 'active' : ''}`}
+            onClick={() => setActiveTab('all')}
+        >
+            All Packages
+        </button>
+        <button 
+            className={`tab-button ${activeTab === 'custom' ? 'active' : ''}`}
+            onClick={() => setActiveTab('custom')}
+        >
+            Custom Packages
+        </button>
+        </div>
+    );
+    };    // Form handling
     const handleItemSelect = (e) => {
         const itemId = parseInt(e.target.value);
         if (itemId) {
             const selectedItem = packageItems.find(item => item.itemId === itemId);
             if (selectedItem && !selectedItems.some(item => item.itemId === itemId)) {
-                setSelectedItems([...selectedItems, {
+                setSelectedItems(prev => [...prev, {
                     itemId: selectedItem.itemId,
                     itemType: selectedItem.itemType,
                     quantity: 1
                 }]);
+                
+                // Update investment amount after a small delay to ensure state is updated
+                setTimeout(() => {
+                    const calculatedAmount = calculateTotalInvestment();
+                    document.getElementById('investedAmount').value = calculatedAmount.toFixed(2);
+                }, 100);
             }
         }
     };
@@ -126,10 +197,16 @@ const ManagePackages = () => {
         if (detailId) {
             const selectedDetail = packageDetails.find(detail => detail.detailId === detailId);
             if (selectedDetail && !selectedDetails.some(detail => detail.detailId === detailId)) {
-                setSelectedDetails([...selectedDetails, {
+                setSelectedDetails(prev => [...prev, {
                     detailId: selectedDetail.detailId,
                     detailDescription: selectedDetail.detailDescription
                 }]);
+                
+                // Update investment amount after a small delay to ensure state is updated
+                setTimeout(() => {
+                    const calculatedAmount = calculateTotalInvestment();
+                    document.getElementById('investedAmount').value = calculatedAmount.toFixed(2);
+                }, 100);
             }
         }
     };
@@ -138,15 +215,33 @@ const ManagePackages = () => {
         setSelectedItems(selectedItems.map(item => 
             item.itemId === itemId ? { ...item, quantity: parseInt(quantity) || 0 } : item
         ));
+        
+        // Update investment amount after a small delay to ensure state is updated
+        setTimeout(() => {
+            const calculatedAmount = calculateTotalInvestment();
+            document.getElementById('investedAmount').value = calculatedAmount.toFixed(2);
+        }, 100);
     };
 
     const removeSelectedItem = (itemId) => {
         setSelectedItems(selectedItems.filter(item => item.itemId !== itemId));
+        
+        // Update investment amount after a small delay to ensure state is updated
+        setTimeout(() => {
+            const calculatedAmount = calculateTotalInvestment();
+            document.getElementById('investedAmount').value = calculatedAmount.toFixed(2);
+        }, 100);
     };
 
     const removeSelectedDetail = (detailId) => {
         setSelectedDetails(selectedDetails.filter(detail => detail.detailId !== detailId));
-    };    const handleEditPackage = (pkg) => {
+        
+        // Update investment amount after a small delay to ensure state is updated
+        setTimeout(() => {
+            const calculatedAmount = calculateTotalInvestment();
+            document.getElementById('investedAmount').value = calculatedAmount.toFixed(2);
+        }, 100);
+    };const handleEditPackage = (pkg) => {
         try {
             console.log("Edit Package triggered with:", pkg);
             setIsEditMode(true);
@@ -207,11 +302,16 @@ const ManagePackages = () => {
                 }
                 return acc;
             }, [])
-            : [];
-            console.log("Parsed details:", detailsToSelect);
+            : [];            console.log("Parsed details:", detailsToSelect);
             setSelectedDetails(detailsToSelect);
 
             console.log("Edit mode enabled with package:", pkg.packageId);
+            
+            // Calculate the initial investment amount after a small delay to ensure state is updated
+            setTimeout(() => {
+                const calculatedAmount = calculateTotalInvestment();
+                document.getElementById('investedAmount').value = calculatedAmount.toFixed(2);
+            }, 100);
         } catch (error) {
             console.error("Error in handleEditPackage:", error);
             setError("Failed to prepare package for editing. Please try again.");
@@ -310,12 +410,14 @@ const ManagePackages = () => {
         setFormSubmitting(true);
 
         try {                
+            // Calculate total investment amount based on selected items and details
+            const calculatedInvestmentAmount = parseFloat(calculateTotalInvestment()).toFixed(2);
+            
             const packageData = {
                 packageName: e.target.packageName.value,
-                coverageHours: parseInt(e.target.coverageHours.value),
                 eventName: e.target.eventName.value,
                 packageTier: e.target.packageTier.value,
-                investedAmount: parseFloat(e.target.investedAmount.value) || 0,
+                investedAmount: calculatedInvestmentAmount,
                 items: selectedItems.map(item => ({
                     itemId: item.itemId,
                     quantity: item.quantity
@@ -442,11 +544,9 @@ const ManagePackages = () => {
                 setError('Failed to delete detail. Please try again.');
             }
         }
-    };
-
-    const filteredPackages = packages.filter(pkg =>
+    };    const filteredPackages = packages.filter(pkg =>
         pkg.packageName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pkg.coverageHours.toString().includes(searchTerm.toLowerCase())
+        (pkg.username && pkg.username.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     if (isLoading) {
@@ -481,18 +581,40 @@ const ManagePackages = () => {
                         <h2>{selectedPackage.packageName}</h2>
                     </div>
 
-                    <div className="view-package-grid">
-                        <div className="view-package-field">
+                    <div className="view-package-grid">                        
+                    <div className="view-package-field">
                             <label>Package Name</label>
                             <div className="value">{selectedPackage.packageName}</div>
                         </div>
                         <div className="view-package-field">
-                            <label>Coverage Hours</label>
-                            <div className="value">{selectedPackage.coverageHours} hours</div>
-                        </div>
-                        <div className="view-package-field">
+                            <label>Username</label>
+                            <div className="value">{selectedPackage.username || 'Not assigned'}</div>
+                        </div>                        <div className="view-package-field">
                             <label>Investment Amount</label>
                             <div className="value">{formatCurrency(selectedPackage.investedAmount)}</div>
+                            <button 
+                                type="button"
+                                className="show-calculation-btn"
+                                onClick={() => {
+                                    const calculatedAmount = calculateTotalInvestment();
+                                    alert(`Investment breakdown:\n\n${
+                                        selectedItems.map(item => {
+                                            const itemData = packageItems.find(i => i.itemId === item.itemId);
+                                            if (!itemData) return '';
+                                            const price = parseFloat(itemData.pricePerItem) || 0;
+                                            return `${itemData.itemType} (${item.quantity}) × ${formatCurrency(price)} = ${formatCurrency(price * item.quantity)}`;
+                                        }).join('\n')
+                                    }\n\n${
+                                        selectedDetails.map(detail => {
+                                            const detailData = packageDetails.find(d => d.detailId === detail.detailId);
+                                            if (!detailData) return '';
+                                            return `${detailData.detailDescription}: ${formatCurrency(detailData.pricePerDetail)}`;
+                                        }).join('\n')
+                                    }\n\nTotal: ${formatCurrency(calculatedAmount)}`);
+                                }}
+                            >
+                                View Calculation
+                            </button>
                         </div>
                         <div className="view-package-field">
                             <label>Event Type</label>
@@ -601,12 +723,17 @@ const ManagePackages = () => {
 
     // Render main view
     if (!isAddingNew && !isEditMode) {
+        // Filter packages based on active tab
+        const tabFilteredPackages = activeTab === 'all' 
+            ? filteredPackages 
+            : filteredPackages.filter(pkg => pkg.username && pkg.username.trim() !== '');
+
         return (
             <div className="packages-management">
                 <div className="search-and-add-container">
                     <input
                         type="text"
-                        placeholder="Search packages by name or hours..."
+                        placeholder="Search packages by name or username..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="search-input"
@@ -638,57 +765,86 @@ const ManagePackages = () => {
                         </button>
                     </div>
                 </div>
-
-                <div className="packages-table">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Package Name</th>
-                                <th>Event</th>
-                                <th>Tier</th>
-                                <th>Coverage Hours</th>
-                                <th>Investment</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredPackages.map((pkg) => (
-                                <tr key={pkg.packageId}>
-                                    <td>{pkg.packageName}</td>
-                                    <td>{pkg.eventName}</td>
-                                    <td>{pkg.packageTierName}</td>
-                                    <td>{pkg.coverageHours} hours</td>
-                                    <td>{formatCurrency(pkg.investedAmount)}</td>
-                                    <td>
-                                        <div className="action-buttons">
-                                            <button 
-                                                className="view-btn"
-                                                onClick={() => handleViewPackage(pkg)}
-                                                aria-label="View package"
-                                            >
-                                                <Eye size={16} />
-                                            </button>
-                                            <button 
-                                                className="edit-btn"
-                                                onClick={() => handleEditPackage(pkg)}
-                                                aria-label="Edit package"
-                                            >
-                                                <Edit size={16} />
-                                            </button>
-                                            <button 
-                                                className="delete-btn"
-                                                onClick={() => openDeleteModal(pkg)}
-                                                aria-label="Delete package"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
+                
+                {/* Render the tabs */}
+                <PackageTabs activeTab={activeTab} setActiveTab={setActiveTab} />
+                
+                {/* Display message if no packages are found in the selected tab */}
+                {tabFilteredPackages.length === 0 && (
+                    <div className="empty-state">
+                        <div className="empty-state-icon">📦</div>
+                        <h3 className="empty-state-title">
+                            {activeTab === 'all' ? 'No packages found' : 'No custom packages found'}
+                        </h3>
+                        <p className="empty-state-message">
+                            {activeTab === 'all' 
+                                ? 'Start by adding your first package.' 
+                                : 'No custom packages have been created yet.'}
+                        </p>
+                        {activeTab === 'all' && (
+                            <button 
+                                className="empty-state-button"
+                                onClick={() => setIsAddingNew(true)}
+                            >
+                                <Plus size={20} /> Create Package
+                            </button>
+                        )}
+                    </div>
+                )}
+                
+                {/* Display the packages table if we have packages to show */}
+                {tabFilteredPackages.length > 0 && (
+                    <div className="packages-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Package Name</th>
+                                    <th>Event</th>
+                                    <th>Tier</th>
+                                    <th>{activeTab === 'custom' ? 'Customer' : 'Username'}</th>
+                                    <th>Investment</th>
+                                    <th>Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                {tabFilteredPackages.map((pkg) => (
+                                    <tr key={pkg.packageId}>
+                                        <td>{pkg.packageName}</td>
+                                        <td>{pkg.eventName}</td>
+                                        <td>{pkg.packageTierName}</td>
+                                        <td>{pkg.username || 'Not assigned'}</td>
+                                        <td>{formatCurrency(pkg.investedAmount)}</td>
+                                        <td>
+                                            <div className="action-buttons">
+                                                <button 
+                                                    className="view-btn"
+                                                    onClick={() => handleViewPackage(pkg)}
+                                                    aria-label="View package"
+                                                >
+                                                    <Eye size={16} />
+                                                </button>
+                                                <button 
+                                                    className="edit-btn"
+                                                    onClick={() => handleEditPackage(pkg)}
+                                                    aria-label="Edit package"
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button 
+                                                    className="delete-btn"
+                                                    onClick={() => openDeleteModal(pkg)}
+                                                    aria-label="Delete package"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
 
                 {successAlert && (
                     <div className={`alert alert-${alertType}`}>
@@ -771,8 +927,7 @@ const ManagePackages = () => {
             </div>
 
             <form onSubmit={handlePackageSubmit} className="package-form">
-                <div className="form-grid">
-                    <div className="form-group">
+                <div className="form-grid">                    <div className="form-group">
                         <label htmlFor="packageName">Package Name</label>
                         <input 
                             type="text" 
@@ -781,29 +936,21 @@ const ManagePackages = () => {
                             required 
                             defaultValue={isEditMode ? selectedPackage?.packageName : ''}
                         />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="coverageHours">Coverage Hours</label>
-                        <input 
-                            type="number" 
-                            id="coverageHours" 
-                            name="coverageHours" 
-                            required 
-                            defaultValue={isEditMode ? selectedPackage?.coverageHours : ''}
-                        />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="investedAmount">Investment Amount ($)</label>
+                    </div>                    <div className="form-group">
+                        <label htmlFor="investedAmount">Investment Amount (LKR)</label>
                         <input 
                             type="number" 
                             id="investedAmount" 
                             name="investedAmount" 
-                            step="0.01" 
+                            step="0.01"
                             min="0"
                             placeholder="0.00"
                             required 
-                            defaultValue={isEditMode ? selectedPackage?.investedAmount : ''}
+                            readOnly
+                            defaultValue={isEditMode ? selectedPackage?.investedAmount : '0.00'}
+                            className="calculated-field"
                         />
+                        <small className="form-help-text">Automatically calculated based on selected items and details</small>
                     </div>
                     <div className="form-group">
                         <label htmlFor="eventName">Event Name</label>
@@ -846,72 +993,72 @@ const ManagePackages = () => {
                 </div>
 
                 {/* Package Items Section */}
-                                <div className="form-section">
-                                    <h3>Package Items</h3>
-                                    <div className="form-group">
-                                        <label htmlFor='itemSelect'>Select Item</label>
-                                        <select 
-                                            id="itemSelect" 
-                                            onChange={handleItemSelect}
-                                            value=""
-                                        >
-                                            <option value="">Choose an item to add</option>
-                                            {packageItems
-                                                .filter(item => !selectedItems.some(selected => selected.itemId === item.itemId))
-                                                .map((item) => (
-                                                    <option 
-                                                        key={item.itemId} 
-                                                        value={item.itemId}
-                                                    >
-                                                        {item.itemType}
-                                                    </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    {selectedItems.length > 0 && (
-                                        <div className="selected-items-list">
-                                            {selectedItems.map((item) => (
-                                                <div key={item.itemId} className="selected-item-card">
-                                                <span className="item-type">{item.itemType}</span>
-                                                    <div className="item-controls">
-                                                        <div className="quantity-control">
-                                                            <button
-                                                                type="button"
-                                                                className="quantity-btn"
-                                                                onClick={() => {
-                                                                    handleQuantityChange(item.itemId, item.quantity - 1);
-                                                                }}
-                                                            >
-                                                                -
-                                                            </button>
-                                                            <input
-                                                                type="number"
-                                                                min="1"
-                                                                value={item.quantity}
-                                                                onChange={(e) => handleQuantityChange(item.itemId, e.target.value)}
-                                                                className="quantity-input"
-                                                            />
-                                                            <button
-                                                                type="button"
-                                                                className="quantity-btn"
-                                                                onClick={() => handleQuantityChange(item.itemId, item.quantity + 1)}
-                                                            >
-                                                                +
-                                                            </button>
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeSelectedItem(item.itemId)}
-                                                            className="remove-btn"
-                                                        >
-                                                            <X size={18} />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
+                <div className="form-section">
+                    <h3>Package Items</h3>
+                    <div className="form-group">
+                        <label htmlFor='itemSelect'>Select Item</label>
+                        <select 
+                            id="itemSelect" 
+                            onChange={handleItemSelect}
+                            value=""
+                        >
+                            <option value="">Choose an item to add</option>
+                            {packageItems
+                                .filter(item => !selectedItems.some(selected => selected.itemId === item.itemId))
+                                .map((item) => (
+                                    <option 
+                                        key={item.itemId} 
+                                        value={item.itemId}
+                                    >
+                                        {item.itemType} ({formatCurrency(item.pricePerItem)})
+                                    </option>
+                            ))}
+                        </select>
+                    </div>
+                    {selectedItems.length > 0 && (
+                        <div className="selected-items-list">
+                            {selectedItems.map((item) => (
+                                <div key={item.itemId} className="selected-item-card">
+                                <span className="item-type">{item.itemType}</span>
+                                    <div className="item-controls">
+                                        <div className="quantity-control">
+                                            <button
+                                                type="button"
+                                                className="quantity-btn"
+                                                onClick={() => {
+                                                    handleQuantityChange(item.itemId, item.quantity - 1);
+                                                }}
+                                            >
+                                                -
+                                            </button>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={item.quantity}
+                                                onChange={(e) => handleQuantityChange(item.itemId, e.target.value)}
+                                                className="quantity-input"
+                                            />
+                                            <button
+                                                type="button"
+                                                className="quantity-btn"
+                                                onClick={() => handleQuantityChange(item.itemId, item.quantity + 1)}
+                                            >
+                                                +
+                                            </button>
                                         </div>
-                                    )}
+                                        <button
+                                            type="button"
+                                            onClick={() => removeSelectedItem(item.itemId)}
+                                            className="remove-btn"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    </div>
                                 </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
 
                 {/* Package Details Section */}
                 <div className="form-section">
@@ -931,7 +1078,7 @@ const ManagePackages = () => {
                                         key={detail.detailId} 
                                         value={detail.detailId}
                                     >
-                                        {detail.detailDescription}
+                                        {detail.detailDescription} ({formatCurrency(detail.pricePerDetail)})
                                     </option>
                             ))}
                         </select>

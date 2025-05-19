@@ -10,7 +10,7 @@ const getAllBookings = async (req, res) => {
         SELECT 
     b.*,
     c.fullName, 
-    c.email, 
+    u.email, 
     c.billingAddress, 
     c.billingMobile,
     p.packageName, 
@@ -22,6 +22,8 @@ FROM
     Booking b
 JOIN 
     Customers c ON b.customerId = c.customerId
+JOIN
+    user u ON c.userID = u.userID 
 LEFT JOIN 
     Package p ON b.packageId = p.packageId
 LEFT JOIN 
@@ -61,7 +63,7 @@ ORDER BY
           SELECT 
           b.*,
           c.fullName, 
-          c.email, 
+          u.email, 
           c.billingAddress, 
           c.billingMobile,
           p.packageName, 
@@ -73,6 +75,8 @@ ORDER BY
           Booking b
       JOIN 
           Customers c ON b.customerId = c.customerId
+      JOIN
+      user u ON c.userID = u.userID
       LEFT JOIN 
           Package p ON b.packageId = p.packageId
       LEFT JOIN 
@@ -319,7 +323,6 @@ const updateBooking = async (req, res) => {
     const updateCustomerQuery = `
       UPDATE Customers 
       SET fullName = ?, 
-          email = ?, 
           billingMobile = ?, 
           billingAddress = ?
       WHERE customerId = ?
@@ -327,7 +330,6 @@ const updateBooking = async (req, res) => {
 
     await queryDatabase(updateCustomerQuery, [
       fullName,
-      email,
       billingMobile,
       billingAddress,
       customerId
@@ -503,255 +505,243 @@ const createPendingBooking = async (req, res) => {
   }
 
 // Create a new booking
-  const createBooking = async (req, res) => {
+// Create a new booking
+const createBooking = async (req, res) => {
+  let totalAmount = req.body.totalAmount;
 
-    let totalAmount = req.body.totalAmount;
+  if (Array.isArray(totalAmount)) {
+    // Filter out empty strings and take the first valid value
+    const validAmounts = totalAmount.filter(amount => amount !== '');
+    totalAmount = validAmounts.length > 0 ? validAmounts[0] : '0';
+  }
 
-    if (Array.isArray(totalAmount)) {
-      // Filter out empty strings and take the first valid value
-      const validAmounts = totalAmount.filter(amount => amount !== '');
-      totalAmount = validAmounts.length > 0 ? validAmounts[0] : '0';
+  const {
+    fullName,
+    email,
+    billingMobile,
+    billingAddress,
+    eventDate,
+    eventTime,
+    venue,
+    packageId,
+    bookingStatus,
+    paymentMethod,
+    cardNumber,
+    cardholderName,
+    expiryDate,
+    cvv,
+    bankReceiptRef,
+    notes
+  } = req.body;
+
+  let bankReceiptImage = null;
+  if (req.file) {
+    bankReceiptImage = req.file.path; // Path to the uploaded image
+  }
+
+  try {
+    console.log('Received booking data:', req.body);
+    // Validate required fields
+    if (!fullName || !email || !billingMobile || !eventDate || !packageId || !totalAmount || !paymentMethod) {
+      return res.status(400).json({ 
+        error: 'Missing required fields', 
+        requiredFields: ['fullName', 'email', 'billingMobile', 'eventDate', 'packageId', 'totalAmount', 'paymentMethod']
+      });
     }
 
-    const {
-      fullName,
-      email,
-      billingMobile,
-      billingAddress,
-      eventDate,
-      eventTime,
-      venue,
-      packageId,
-      bookingStatus,
-      paymentMethod,
-      cardNumber,
-      cardholderName,
-      expiryDate,
-      cvv,
-      bankReceiptRef,
-      notes
-    } = req.body;
-
-    let bankReceiptImage = null;
-    if (req.file) {
-      bankReceiptImage = req.file.path; // Path to the uploaded image
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    try {
-      console.log('Received booking data:', req.body);
-      // Validate required fields
-      if (!fullName || !email || !billingMobile || !eventDate || !packageId || !totalAmount || !paymentMethod) {
+    // Validate mobile number format (assuming 10-digit)
+    const mobileRegex = /^\d{10}$/;
+    if (!mobileRegex.test(billingMobile)) {
+      return res.status(400).json({ error: 'Invalid mobile number format' });
+    }
+
+    // Validate event date (not in the past)
+    const eventDateObj = new Date(eventDate);
+    if (eventDateObj < new Date()) {
+      return res.status(400).json({ error: 'Event date cannot be in the past' });
+    }
+
+    // Validate amount
+    if (isNaN(totalAmount) || totalAmount <= 0) {
+      return res.status(400).json({ error: 'Invalid total amount' });
+    }
+
+    // Validate payment method and associated fields
+    if (paymentMethod === 'creditCard') {
+      if (!cardNumber || !cardholderName || !expiryDate || !cvv) {
         return res.status(400).json({ 
-          error: 'Missing required fields', 
-          requiredFields: ['fullName', 'email', 'billingMobile', 'eventDate', 'packageId', 'totalAmount', 'paymentMethod']
+          error: 'Credit card details are required for credit card payments',
+          requiredFields: ['cardNumber', 'cardholderName', 'expiryDate', 'cvv']
         });
       }
-  
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({ error: 'Invalid email format' });
-      }
-  
-      // Validate mobile number format (assuming 10-digit)
-      const mobileRegex = /^\d{10}$/;
-      if (!mobileRegex.test(billingMobile)) {
-        return res.status(400).json({ error: 'Invalid mobile number format' });
-      }
-  
-      // Validate event date (not in the past)
-      const eventDateObj = new Date(eventDate);
-      if (eventDateObj < new Date()) {
-        return res.status(400).json({ error: 'Event date cannot be in the past' });
-      }
-  
-      // Validate amount
-      if (isNaN(totalAmount) || totalAmount <= 0) {
-        return res.status(400).json({ error: 'Invalid total amount' });
-      }
-  
-      // Validate payment method and associated fields
-      if (paymentMethod === 'creditCard') {
-        if (!cardNumber || !cardholderName || !expiryDate || !cvv) {
-          return res.status(400).json({ 
-            error: 'Credit card details are required for credit card payments',
-            requiredFields: ['cardNumber', 'cardholderName', 'expiryDate', 'cvv']
-          });
-        }
-  
-        // Validate card number (16 digits)
-        if (!/^\d{16}$/.test(cardNumber.replace(/\s/g, ''))) {
-          return res.status(400).json({ error: 'Invalid card number format' });
-        }
-  
-        // Validate expiry date format (MM/YY or MM/YYYY)
-        if (!/^(0[1-9]|1[0-2])\/([0-9]{2}|[0-9]{4})$/.test(expiryDate)) {
-          return res.status(400).json({ error: 'Invalid expiry date format (MM/YY or MM/YYYY)' });
-        }
-  
-        // Validate CVV (3 or 4 digits)
-        if (!/^\d{3,4}$/.test(cvv)) {
-          return res.status(400).json({ error: 'Invalid CVV format' });
-        }
-      } else if (paymentMethod === 'bankTransfer') {
-        if (!bankReceiptRef) {
-          return res.status(400).json({ 
-            error: 'Bank transfer reference number is required',
-            requiredFields: ['bankReceiptRef']
-          });
-        }
-        // Make receipt image optional or provide more helpful error
-        if (!bankReceiptImage) {
-          console.warn('No receipt image uploaded for bank transfer');
-        }
-      }
-  
-      let newCreditCardId = null;
-      let newDepositId = null;
 
-      // Check if customer already exists with the same name and email
-      const checkExistingCustomerQuery = 'SELECT customerId FROM Customers WHERE email = ? LIMIT 1';
-      const existingCustomer = await queryDatabase(checkExistingCustomerQuery, [email]);
-
-      let newCustomerId;
-      let paymentStatus = 'Pending';
-
-      if (existingCustomer && existingCustomer.length > 0) {
-        // Use existing customer's ID
-        newCustomerId = existingCustomer[0].customerId;
-      } else {
-        // Customer doesn't exist, create a new one
-        // First, get the last customer ID
-        const lastCustomerQuery = 'SELECT customerId FROM Customers ORDER BY customerId DESC LIMIT 1';
-        const lastCustomer = await queryDatabase(lastCustomerQuery);
-        
-        // Generate new customer ID (increment from last one or start at 1)
-        newCustomerId = lastCustomer.length > 0 ? lastCustomer[0].customerId + 1 : 1;
-
-        // get the user id from the email
-        const getUserIdQuery = 'SELECT userID FROM user WHERE email = ? LIMIT 1';
-        const userIdResult = await queryDatabase(getUserIdQuery, [email]);
-        const userId = userIdResult.length > 0 ? userIdResult[0].userID : null;
-
-        // Insert new customer
-        const customerQuery = 'INSERT INTO Customers (customerId, fullName, email, billingMobile, billingAddress, userID) VALUES (?, ?, ?, ?, ?, ?)';
-        const customerResult = await queryDatabase(customerQuery, [newCustomerId, fullName, email, billingMobile, billingAddress, userId]);
-
-        if (!customerResult || !customerResult.affectedRows) {
-          throw new Error('Failed to insert customer');
-        }
-      }
-  
-      // Check if the credit card details are provided
-      if (paymentMethod === 'creditCard' && cardNumber && cardholderName && expiryDate && cvv) {
-        paymentStatus = 'Completed';
-        const lastCreditCardQuery = 'SELECT creditCardId FROM creditCard ORDER BY creditCardId DESC LIMIT 1';
-        const lastCreditCard = await queryDatabase(lastCreditCardQuery);
-        newCreditCardId = lastCreditCard.length > 0 ? lastCreditCard[0].creditCardId + 1 : 1;
-        
-        const creditCardQuery = 'INSERT INTO creditCard (creditCardId, customerId, cardholderName, cardNumber, expiryDate, cvv) VALUES (?, ?, ?, ?, ?, ?)';
-        const creditCardResult = await queryDatabase(creditCardQuery, [newCreditCardId, newCustomerId, cardholderName, cardNumber, expiryDate, cvv]);
-        
-        if (!creditCardResult || !creditCardResult.affectedRows) {
-          throw new Error('Failed to insert credit card');
-        }
-      }
-    
-      // Check if the bank deposit details are provided
-      if (paymentMethod === 'bankTransfer' && bankReceiptRef) {
-        paymentStatus = 'Pending';
-        const lastDepositQuery = 'SELECT bankDepositId FROM bankdeposits ORDER BY bankDepositId DESC LIMIT 1';
-        const lastDeposit = await queryDatabase(lastDepositQuery);
-        newDepositId = lastDeposit.length > 0 ? lastDeposit[0].bankDepositId + 1 : 1;
-        
-        const depositQuery = 'INSERT INTO bankDeposits (bankDepositId, referenceNo, depositAmount, receiptImage) VALUES (?, ?, ?, ?)';
-        const depositResult = await queryDatabase(depositQuery, [
-          newDepositId, 
-          bankReceiptRef, 
-          totalAmount, 
-          bankReceiptImage // This now contains the path to the uploaded file
-        ]);
-        
-        if (!depositResult || !depositResult.affectedRows) {
-          throw new Error('Failed to insert bank deposit');
-        }
+      // Validate card number (16 digits)
+      if (!/^\d{16}$/.test(cardNumber.replace(/\s/g, ''))) {
+        return res.status(400).json({ error: 'Invalid card number format' });
       }
 
-      // Insert new booking
-      const lastBookingQuery = 'SELECT bookingId FROM booking ORDER BY bookingId DESC LIMIT 1';
-      const lastBooking = await queryDatabase(lastBookingQuery);
-      const newBookingId = lastBooking.length > 0 ? lastBooking[0].bookingId + 1 : 1;
+      // Validate expiry date format (MM/YY or MM/YYYY)
+      if (!/^(0[1-9]|1[0-2])\/([0-9]{2}|[0-9]{4})$/.test(expiryDate)) {
+        return res.status(400).json({ error: 'Invalid expiry date format (MM/YY or MM/YYYY)' });
+      }
+
+      // Validate CVV (3 or 4 digits)
+      if (!/^\d{3,4}$/.test(cvv)) {
+        return res.status(400).json({ error: 'Invalid CVV format' });
+      }
+    } else if (paymentMethod === 'bankTransfer') {
+      if (!bankReceiptRef) {
+        return res.status(400).json({ 
+          error: 'Bank transfer reference number is required',
+          requiredFields: ['bankReceiptRef']
+        });
+      }
+      // Make receipt image optional or provide more helpful error
+      if (!bankReceiptImage) {
+        console.warn('No receipt image uploaded for bank transfer');
+      }
+    }
+
+    let newCreditCardId = null;
+    let newDepositId = null;
+    let paymentStatus = 'Pending';
+
+    // Find the existing user by email
+    const getUserQuery = 'SELECT userID FROM User WHERE email = ? LIMIT 1';
+    const userResult = await queryDatabase(getUserQuery, [email]);
+
+    if (userResult.length === 0) {
+      return res.status(404).json({ error: 'User not found. Please login/register first.' });
+    }
+
+    const userId = userResult[0].userID;
+
+    // Get the customer ID associated with this user
+    const getCustomerQuery = 'SELECT customerId FROM Customers WHERE userID = ? LIMIT 1';
+    const customerResult = await queryDatabase(getCustomerQuery, [userId]);
+
+    if (customerResult.length === 0) {
+      return res.status(404).json({ error: 'Customer profile not found. Please complete your profile first.' });
+    }
+
+    const customerId = customerResult[0].customerId;
+
+    // Check if the credit card details are provided
+    if (paymentMethod === 'creditCard' && cardNumber && cardholderName && expiryDate && cvv) {
+      paymentStatus = 'Completed';
+      const lastCreditCardQuery = 'SELECT creditCardId FROM creditCard ORDER BY creditCardId DESC LIMIT 1';
+      const lastCreditCard = await queryDatabase(lastCreditCardQuery);
+      newCreditCardId = lastCreditCard.length > 0 ? lastCreditCard[0].creditCardId + 1 : 1;
       
-      const bookingQuery = `INSERT INTO booking (bookingId, customerId, packageId, eventDate, eventTime, venue, bookingStatus, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-      const bookingResult = await queryDatabase(bookingQuery, [newBookingId, newCustomerId, packageId, eventDate, eventTime, venue,  bookingStatus, notes]);
+      const creditCardQuery = 'INSERT INTO creditCard (creditCardId, customerId, cardholderName, cardNumber, expiryDate, cvv) VALUES (?, ?, ?, ?, ?, ?)';
+      const creditCardResult = await queryDatabase(creditCardQuery, [newCreditCardId, customerId, cardholderName, cardNumber, expiryDate, cvv]);
       
-      if (!bookingResult || !bookingResult.affectedRows) {
-        throw new Error('Failed to insert booking');
+      if (!creditCardResult || !creditCardResult.affectedRows) {
+        throw new Error('Failed to insert credit card');
       }
+    }
   
-      // Insert into payment table
-      const lastPaymentQuery = 'SELECT paymentId FROM payment ORDER BY paymentId DESC LIMIT 1';
-      const lastPayment = await queryDatabase(lastPaymentQuery);
-      const newPaymentId = lastPayment.length > 0 ? lastPayment[0].paymentId + 1 : 1;
-      console.log('bankDepositId:', newDepositId);
-      const paymentQuery = `INSERT INTO payment (paymentId, bookingId, paymentAmount, paymentDate, paymentMethod, bankDepositId, creditCardId, paymentStatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-      const paymentResult = await queryDatabase(paymentQuery, [
-        newPaymentId, 
-        newBookingId, 
+    // Check if the bank deposit details are provided
+    if (paymentMethod === 'bankTransfer' && bankReceiptRef) {
+      paymentStatus = 'Pending';
+      const lastDepositQuery = 'SELECT bankDepositId FROM bankdeposits ORDER BY bankDepositId DESC LIMIT 1';
+      const lastDeposit = await queryDatabase(lastDepositQuery);
+      newDepositId = lastDeposit.length > 0 ? lastDeposit[0].bankDepositId + 1 : 1;
+      
+      const depositQuery = 'INSERT INTO bankDeposits (bankDepositId, referenceNo, depositAmount, receiptImage) VALUES (?, ?, ?, ?)';
+      const depositResult = await queryDatabase(depositQuery, [
+        newDepositId, 
+        bankReceiptRef, 
         totalAmount, 
-        new Date(), 
-        paymentMethod, 
-        paymentMethod === 'bankTransfer' ? newDepositId : null, 
-        paymentMethod === 'creditCard' ? newCreditCardId : null, 
-        paymentStatus
+        bankReceiptImage // This now contains the path to the uploaded file
       ]);
       
-      if (!paymentResult || !paymentResult.affectedRows) {
-        throw new Error('Failed to insert payment');
+      if (!depositResult || !depositResult.affectedRows) {
+        throw new Error('Failed to insert bank deposit');
       }
-  
-      // Return success response
-      res.status(201).json({ 
-        message: 'Booking created successfully',
-        bookingId: newBookingId,
-        customerId: newCustomerId,
-        paymentId: newPaymentId,
-        bookingDetails: {
-          fullName,
-          email,
-          eventDate,
-          eventTime,
-          venue,
-          packageId,
-          totalAmount,
-          bookingStatus: bookingStatus
-        }
-      });
-      
-    } catch (error) {
-      console.error('Error in createBooking:', error);
-      
-      // Handle specific database errors
-      if (error.code === 'ER_DUP_ENTRY') {
-        return res.status(409).json({ error: 'Duplicate entry detected' });
-      }
-      
-      if (error.code === 'ER_NO_REFERENCED_ROW_2') {
-        return res.status(400).json({ error: 'Referenced record does not exist' });
-      }
-      
-      // Handle custom validation errors
-      if (error.message.includes('Failed to insert')) {
-        return res.status(500).json({ error: 'Database operation failed', details: error.message });
-      }
-      
-      // Generic error response
-      res.status(500).json({ 
-        error: 'Internal server error',
-        message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
-      });
     }
-  };
+
+    // Insert new booking
+    const lastBookingQuery = 'SELECT bookingId FROM booking ORDER BY bookingId DESC LIMIT 1';
+    const lastBooking = await queryDatabase(lastBookingQuery);
+    const newBookingId = lastBooking.length > 0 ? lastBooking[0].bookingId + 1 : 1;
+    
+    const bookingQuery = `INSERT INTO booking (bookingId, customerId, packageId, eventDate, eventTime, venue, bookingStatus, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    const bookingResult = await queryDatabase(bookingQuery, [newBookingId, customerId, packageId, eventDate, eventTime, venue, bookingStatus, notes]);
+    
+    if (!bookingResult || !bookingResult.affectedRows) {
+      throw new Error('Failed to insert booking');
+    }
+
+    // Insert into payment table
+    const lastPaymentQuery = 'SELECT paymentId FROM payment ORDER BY paymentId DESC LIMIT 1';
+    const lastPayment = await queryDatabase(lastPaymentQuery);
+    const newPaymentId = lastPayment.length > 0 ? lastPayment[0].paymentId + 1 : 1;
+    console.log('bankDepositId:', newDepositId);
+    const paymentQuery = `INSERT INTO payment (paymentId, bookingId, paymentAmount, paymentDate, paymentMethod, bankDepositId, creditCardId, paymentStatus) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+    const paymentResult = await queryDatabase(paymentQuery, [
+      newPaymentId, 
+      newBookingId, 
+      totalAmount, 
+      new Date(), 
+      paymentMethod, 
+      paymentMethod === 'bankTransfer' ? newDepositId : null, 
+      paymentMethod === 'creditCard' ? newCreditCardId : null, 
+      paymentStatus
+    ]);
+    
+    if (!paymentResult || !paymentResult.affectedRows) {
+      throw new Error('Failed to insert payment');
+    }
+
+    // Return success response
+    res.status(201).json({ 
+      message: 'Booking created successfully',
+      bookingId: newBookingId,
+      customerId: customerId,
+      paymentId: newPaymentId,
+      bookingDetails: {
+        fullName,
+        email,
+        eventDate,
+        eventTime,
+        venue,
+        packageId,
+        totalAmount,
+        bookingStatus: bookingStatus
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error in createBooking:', error);
+    
+    // Handle specific database errors
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Duplicate entry detected' });
+    }
+    
+    if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+      return res.status(400).json({ error: 'Referenced record does not exist' });
+    }
+    
+    // Handle custom validation errors
+    if (error.message.includes('Failed to insert')) {
+      return res.status(500).json({ error: 'Database operation failed', details: error.message });
+    }
+    
+    // Generic error response
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred'
+    });
+  }
+};
 
   // Get bookings for calendar display
 const getCalendarBookings = async (req, res) => {

@@ -93,6 +93,15 @@
     background-color: rgba(255, 255, 255, 0.1);
 }
 
+.your-bookings {
+  background-color: #97851cc5;
+  color: white;
+}
+
+.your-bookings:hover {
+  background-color: #8b8041c5;
+}
+
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
@@ -111,17 +120,17 @@
 
 /* Responsive styles */
 @media (max-width: 768px) {
-    .header-text {
-        font-size: 2rem;
-    }
-    
-    .header-buttons {
-        flex-direction: column;
-        gap: 1rem;
-    }
-    
-    .header-btn {
-        width: 100%;
-        padding: 12px 20px;
-    }
+  .header-text {
+      font-size: 2rem;
+  }
+  
+  .header-buttons {
+      flex-direction: column;
+      gap: 1rem;
+  }
+  
+  .header-btn {
+      width: 100%;
+      padding: 12px 20px;
+  }
 }

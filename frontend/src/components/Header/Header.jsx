@@ -1,9 +1,11 @@
-import React from 'react'
+import React, { useState, useEffect, useContext, use } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AuthContext } from '../../context/AuthContext' // You'll need to create this
 import './Header.css'
 
 const Header = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useContext(AuthContext);
 
   const handleBookNow = () => {
     navigate('/booking');
@@ -11,6 +13,10 @@ const Header = () => {
 
   const handleViewPackages = () => {
     navigate('/packages');
+  };
+
+  const handleYourBookings = () => {
+    navigate('/events');
   };
 
   return (
@@ -32,6 +38,14 @@ const Header = () => {
           >
             View Packages
           </button>
+          {isAuthenticated && (
+            <button 
+              className="header-btn your-bookings"
+              onClick={handleYourBookings}
+            >
+              Your Bookings
+            </button>
+          )}
         </div>
       </div>
     </div>
