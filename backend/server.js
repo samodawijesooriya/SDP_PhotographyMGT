@@ -15,6 +15,7 @@ import emailRouter from './routes/emailRoutes.js';
 import homeRouter from './routes/homeRouter.js';
 import driveRouter from './routes/driveRoutes.js';
 import passwordRouter from './routes/passwordRoutes.js';
+import reportRouter from './routes/reportRoutes.js';
 import { initScheduler, sendDailySummaryEmail } from './utils/scheduler.js';
 import fs from 'fs';
 import path from 'path';
@@ -63,6 +64,8 @@ app.use('/api/drive', driveRouter);
 app.use('/api/payment', paymentRouter);
 
 app.use('/api/auth', passwordRouter);
+
+app.use('/api/reports', reportRouter);
 
 // request the data from the server
 app.get("/", (req, res) => {
