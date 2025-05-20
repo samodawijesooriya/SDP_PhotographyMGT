@@ -14,6 +14,8 @@ const getAllBookings = async (req, res) => {
     c.billingAddress, 
     c.billingMobile,
     p.packageName, 
+    p.packageTierId,
+    pt.packageTierName,  -- Add this line to get the package tier name
     p.coverageHours, 
     p.investedAmount,
     e.eventName,
@@ -26,6 +28,8 @@ JOIN
     user u ON c.userID = u.userID 
 LEFT JOIN 
     Package p ON b.packageId = p.packageId
+LEFT JOIN 
+    PackageTier pt ON p.packageTierId = pt.packageTierId  -- Add this join to get package tier names
 LEFT JOIN 
     Event e ON p.eventId = e.eventId
 LEFT JOIN (
@@ -40,7 +44,7 @@ LEFT JOIN (
         bookingId
 ) pay_sum ON pay_sum.bookingId = b.bookingId
 ORDER BY 
-    b.eventDate DESC;
+    b.eventDate ASC;
       `;
       
       db.query(query, (err, results) => {

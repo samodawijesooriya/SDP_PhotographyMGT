@@ -128,6 +128,7 @@ const AppContent = () => {
               </PhotographerRoute>
             } 
           />
+        
           
           {/* Admin only routes */}
           <Route 

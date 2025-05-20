@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { DollarSign, Users, Calendar, TrendingUp, Filter, Download, Eye } from 'lucide-react';
+import { DollarSign, Users, Calendar, TrendingUp, Filter, Download, Eye, FileText, Printer, Package } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import './Reports.css';
 import { utils as XLSXUtils, writeFile } from 'xlsx';
 import axios from 'axios';
 import { StoreContext } from '../../../context/StoreContext';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 const Reports = () => {
+  const navigate = useNavigate();
   // Sample data - in a real app, this would come from an API
   const [reportData, setReportData] = useState({
     totalBookings: 247,
@@ -41,7 +45,8 @@ const Reports = () => {
       { id: 'BK-2023-04', customerName: 'John Smith', date: '2023-07-05', amount: 37000, status: 'Confirmed' },
       { id: 'BK-2023-05', customerName: 'Liu Wei', date: '2023-07-03', amount: 94000, status: 'Cancelled' }
     ]
-  });
+  });  
+  
   const [dateRange, setDateRange] = useState('month');
   const [isLoading, setIsLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
@@ -50,7 +55,31 @@ const Reports = () => {
   const [recentBookings, setRecentBookings] = useState([]);
   const [monthlyData, setMonthlyData] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
-  const { url } = useContext(StoreContext);
+  const [pdfLoading, setPdfLoading] = useState(false);  const [eventTiers, setEventTiers] = useState([]);
+  const [eventTypes, setEventTypes] = useState([]);
+  const [filteredBookings, setFilteredBookings] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [filteredPayments, setFilteredPayments] = useState([]);
+  const [paymentFilters, setPaymentFilters] = useState({
+    method: 'all',
+    status: 'all',
+    month: 'all',
+    year: 'all'
+  });
+  const [paymentMethodStats, setPaymentMethodStats] = useState([]);
+  const [paymentStatusStats, setPaymentStatusStats] = useState([]);
+  const [filters, setFilters] = useState({
+    eventTier: 'all',
+    eventType: 'all',
+    status: 'all',
+    month: 'all'
+  });
+  const [activeTab, setActiveTab] = useState('bookings'); // 'bookings', 'payments', 'packages'
+    const { url } = useContext(StoreContext);
+  const bookingReportRef = React.useRef(null);
+  const paymentReportRef = React.useRef(null);
+
+
   const fetchBookingStats = async () => {
     try {
       const response = await axios.get(`${url}/api/home/booking-stats`);
@@ -102,8 +131,14 @@ const Reports = () => {
 
   // Format currency
   const formatCurrency = (amount) => {
-    return `LKR ${amount.toLocaleString()}`;
+    // Add comma-separated values and ensure amount is a number
+    const numAmount = typeof amount === 'number' ? amount : Number(amount);
+    return `LKR ${numAmount.toLocaleString('en-US', {
+      maximumFractionDigits: 2,
+      minimumFractionDigits: 2
+    })}`;
   };
+
   // Format date
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -159,12 +194,11 @@ const Reports = () => {
       setIsLoading(false);
     });
   };
-
   // Render status with appropriate styling
   const renderStatus = (status) => {
     let statusClass = '';
     
-    switch(status.toLowerCase()) {
+    switch(status?.toLowerCase()) {
       case 'confirmed':
         statusClass = 'status-confirmed';
         break;
@@ -174,12 +208,15 @@ const Reports = () => {
       case 'cancelled':
         statusClass = 'status-cancelled';
         break;
+      case 'rejected':
+        statusClass = 'status-rejected';
+        break;
       default:
         statusClass = 'status-default';
     }
     
     return <span className={`status-badge ${statusClass}`}>{status}</span>;
-  };  // Export data to Excel
+  };// Export data to Excel
   const exportToExcel = async () => {
     try {
       setExportLoading(true);
@@ -294,26 +331,38 @@ const Reports = () => {
       setExportLoading(false);
       // You could show an error notification here
     }
-  };
-  useEffect(() => {
+  };  useEffect(() => {
       setIsLoading(true);
       Promise.all([
         fetchBookingStats(),
         fetchSummaryStats(),
         fetchRecentBookings(),
         fetchMonthlyData(),
-        fetchPaymentMethods()
+        fetchPaymentMethods(),
+        fetchEventTiers(),
+        fetchEventTypes(),
+        fetchPayments()
       ]).finally(() => {
         setIsLoading(false);
       });
     }, [dateRange]);
 
-  // Fetch recent bookings
+  // Apply filters when they change
+  useEffect(() => {
+    filterBookings();
+  }, [filters, recentBookings]);
+
+  // Initialize filtered bookings with all bookings
+  useEffect(() => {
+    setFilteredBookings(recentBookings);
+  }, [recentBookings]);  // Fetch recent bookings
+  
+  
   const fetchRecentBookings = async () => {
     try {
-      const response = await axios.get(`${url}/api/home/new-bookings`);
+      const response = await axios.get(`${url}/api/bookings`);
       if (response.status !== 200) {
-        throw new Error('Failed to fetch recent bookings');
+        throw new Error('Failed to fetch bookings');
       }
       
       // Transform booking data to match the expected format
@@ -321,9 +370,13 @@ const Reports = () => {
         id: booking.bookingId,
         customerName: booking.fullName,
         date: booking.eventDate,
-        // Estimate amount based on package type or use a placeholder
-        amount: Math.floor(Math.random() * 50000) + 30000, // Placeholder until we have real payment data
-        status: booking.bookingStatus
+        // Use actual amount from booking or fall back to placeholder
+        amount: parseFloat(booking.investedAmount || 0) || Math.floor(Math.random() * 50000) + 30000,
+        status: booking.bookingStatus,
+        packageTier: booking.packageTierName || 'Standard', // Add tier information
+        eventType: booking.eventName || 'Unknown',          // Add event type information
+        eventId: booking.eventId || '',
+        packageId: booking.packageId || ''
       }));
       
       setRecentBookings(formattedBookings);
@@ -334,7 +387,7 @@ const Reports = () => {
         recentBookings: formattedBookings
       }));
     } catch (error) {
-      console.error('Error fetching recent bookings:', error);
+      console.error('Error fetching bookings:', error);
     }
   };
   // Fetch monthly data for charts
@@ -443,8 +496,6 @@ const Reports = () => {
         const paymentMethodData = [
           { name: 'Bank Transfer', value: 98 },
           { name: 'Credit Card', value: 56 },
-          { name: 'Cash', value: 32 },
-          { name: 'PayPal', value: 12 }
         ];
         
         setPaymentMethods(paymentMethodData);
@@ -461,8 +512,6 @@ const Reports = () => {
       const paymentMethodData = [
         { name: 'Bank Transfer', value: 98 },
         { name: 'Credit Card', value: 56 },
-        { name: 'Cash', value: 32 },
-        { name: 'PayPal', value: 12 }
       ];
       
       setPaymentMethods(paymentMethodData);
@@ -472,6 +521,372 @@ const Reports = () => {
         ...prev,
         paymentMethods: paymentMethodData
       }));
+    }
+  };
+
+  // Fetch event tiers
+  const fetchEventTiers = async () => {
+    try {
+      const response = await axios.get(`${url}/api/packages/pkg/tiers`);
+      if (response.status === 200) {
+        setEventTiers(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching event tiers:', error);
+    }
+  };
+
+  // Fetch event types
+  const fetchEventTypes = async () => {
+    try {
+      const response = await axios.get(`${url}/api/packages/pkg/events`);
+      if (response.status === 200) {
+        setEventTypes(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching event types:', error);
+    }
+  };
+
+  // Handle filter changes
+  const handleFilterChange = (filterName, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterName]: value
+    }));
+  };
+
+  // Filter bookings based on current filters
+  const filterBookings = () => {
+    let filtered = [...recentBookings];
+
+    // Filter by event tier
+    if (filters.eventTier !== 'all') {
+      filtered = filtered.filter(booking => 
+        booking.packageTier === filters.eventTier
+      );
+    }
+
+    // Filter by event type
+    if (filters.eventType !== 'all') {
+      filtered = filtered.filter(booking => 
+        booking.eventType === filters.eventType
+      );
+    }
+
+    // Filter by status
+    if (filters.status !== 'all') {
+      filtered = filtered.filter(booking => 
+        booking.status.toLowerCase() === filters.status.toLowerCase()
+      );
+    }
+
+    // Filter by month
+    if (filters.month !== 'all') {
+      filtered = filtered.filter(booking => {
+        const bookingDate = new Date(booking.date);
+        return bookingDate.getMonth() === parseInt(filters.month);
+      });
+    }
+
+    setFilteredBookings(filtered);
+  };
+
+  // Fetch payments data
+  const fetchPayments = async () => {
+    try {
+      const response = await axios.get(`${url}/api/reports/detailed-payments`, {
+        params: { range: dateRange }
+      });
+      
+      if (response.status !== 200) {
+        throw new Error('Failed to fetch payment data');
+      }
+      
+      // If we get data from the API, use it
+      if (response.data && response.data.length > 0) {
+        setPayments(response.data);
+        setFilteredPayments(response.data);
+        updatePaymentStats(response.data);
+      } else {
+        // Generate placeholder data if no data is returned
+        const placeholderPayments = generatePlaceholderPayments();
+        setPayments(placeholderPayments);
+        setFilteredPayments(placeholderPayments);
+        updatePaymentStats(placeholderPayments);
+      }
+    } catch (error) {
+      console.error('Error fetching payment data:', error);
+      // Fallback to placeholder data
+      const placeholderPayments = generatePlaceholderPayments();
+      setPayments(placeholderPayments);
+      setFilteredPayments(placeholderPayments);
+      updatePaymentStats(placeholderPayments);
+    }
+  };
+
+  // Generate placeholder payment data
+  const generatePlaceholderPayments = () => {
+    // Generate dates spanning the last 12 months
+    const currentDate = new Date();
+    const payments = [];
+    const paymentMethods = ['bankTransfer', 'creditCard', 'cash', 'paypal'];
+    const statuses = ['Confirmed', 'Pending', 'Rejected'];
+    const customers = [
+      'Sarah Johnson', 'Michael Chen', 'Jessica Patel', 
+      'David Kim', 'Emily Rodriguez', 'James Wilson',
+      'Sophia Martinez', 'Olivia Lee', 'Noah Brown'
+    ];
+    
+    // Generate 50 sample payments
+    for (let i = 0; i < 50; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - Math.floor(Math.random() * 365)); // Random date in the last year
+      
+      const amount = Math.floor(Math.random() * 100000) + 10000; // Random amount between 10,000 and 110,000
+      const method = paymentMethods[Math.floor(Math.random() * paymentMethods.length)];
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      const customerName = customers[Math.floor(Math.random() * customers.length)];
+      
+      payments.push({
+        id: `PAY-${1000 + i}`,
+        bookingId: `BK-${2000 + i}`,
+        customerName,
+        date: date.toISOString(),
+        amount,
+        method,
+        status,
+        referenceNo: method === 'bankTransfer' ? `REF-${Math.floor(Math.random() * 1000000)}` : null
+      });
+    }
+    
+    return payments;
+  };
+
+  // Update payment statistics
+  const updatePaymentStats = (paymentData) => {
+    // Calculate payment method stats
+    const methodCount = {};
+    paymentData.forEach(payment => {
+      const method = payment.method || 'Unknown';
+      methodCount[method] = (methodCount[method] || 0) + 1;
+    });
+    
+    const methodStats = Object.keys(methodCount).map(method => ({
+      name: formatPaymentMethodName(method),
+      value: methodCount[method]
+    }));
+    
+    // Calculate payment status stats
+    const statusCount = {};
+    paymentData.forEach(payment => {
+      const status = payment.status || 'Unknown';
+      statusCount[status] = (statusCount[status] || 0) + 1;
+    });
+    
+    const statusStats = Object.keys(statusCount).map(status => ({
+      name: status,
+      value: statusCount[status]
+    }));
+    
+    setPaymentMethodStats(methodStats);
+    setPaymentStatusStats(statusStats);
+  };
+
+  // Format payment method name for display
+  const formatPaymentMethodName = (method) => {
+    switch(method.toLowerCase()) {
+      case 'banktransfer':
+        return 'Bank Transfer';
+      case 'creditcard':
+        return 'Credit Card';
+      case 'paypal':
+        return 'PayPal';
+      case 'cash':
+        return 'Cash';
+      default:
+        return method;
+    }
+  };
+
+  // Handle payment filter changes
+  const handlePaymentFilterChange = (filterName, value) => {
+    setPaymentFilters(prev => ({
+      ...prev,
+      [filterName]: value
+    }));
+  };
+
+  // Apply payment filters when they change
+  useEffect(() => {
+    filterPayments();
+  }, [paymentFilters, payments]);
+
+  // Filter payments based on filters
+  const filterPayments = () => {
+    let filtered = [...payments];
+    
+    // Filter by payment method
+    if (paymentFilters.method !== 'all') {
+      filtered = filtered.filter(payment => 
+        payment.method?.toLowerCase() === paymentFilters.method.toLowerCase()
+      );
+    }
+    
+    // Filter by payment status
+    if (paymentFilters.status !== 'all') {
+      filtered = filtered.filter(payment => 
+        payment.status?.toLowerCase() === paymentFilters.status.toLowerCase()
+      );
+    }
+    
+    // Filter by month
+    if (paymentFilters.month !== 'all') {
+      filtered = filtered.filter(payment => {
+        const paymentDate = new Date(payment.date);
+        return paymentDate.getMonth() === parseInt(paymentFilters.month);
+      });
+    }
+    
+    // Filter by year
+    if (paymentFilters.year !== 'all') {
+      filtered = filtered.filter(payment => {
+        const paymentDate = new Date(payment.date);
+        return paymentDate.getFullYear() === parseInt(paymentFilters.year);
+      });
+    }
+    
+    setFilteredPayments(filtered);
+    updatePaymentStats(filtered);
+  };
+
+  // Generate PDF from payment report
+  const generatePaymentPDF = async () => {
+    if (!paymentReportRef.current) {
+      console.error('Payment report ref is not available');
+      return;
+    }
+
+    try {
+      setPdfLoading(true);
+      
+      const element = paymentReportRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        logging: false,
+        useCORS: true
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+      
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      // Create filename based on applied filters
+      let filename = 'Payment_Report';
+      
+      if (paymentFilters.method !== 'all') {
+        filename += `_${formatPaymentMethodName(paymentFilters.method)}`;
+      }
+      
+      if (paymentFilters.status !== 'all') {
+        filename += `_${paymentFilters.status}`;
+      }
+      
+      if (paymentFilters.month !== 'all') {
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        filename += `_${monthNames[parseInt(paymentFilters.month)]}`;
+      }
+      
+      if (paymentFilters.year !== 'all') {
+        filename += `_${paymentFilters.year}`;
+      }
+      
+      filename += `_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      pdf.save(filename);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  // Generate PDF from the booking report
+  const generatePDF = async () => {
+    if (!bookingReportRef.current) {
+      console.error('Booking report ref is not available');
+      return;
+    }
+
+    try {
+      setPdfLoading(true);
+      
+      const element = bookingReportRef.current;
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        logging: false,
+        useCORS: true
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+      
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      // Create filename based on applied filters
+      let filename = 'Booking_Report';
+      
+      if (filters.eventTier !== 'all') {
+        filename += `_${filters.eventTier}`;
+      }
+      
+      if (filters.eventType !== 'all') {
+        filename += `_${filters.eventType}`;
+      }
+      
+      if (filters.status !== 'all') {
+        filename += `_${filters.status}`;
+      }
+      
+      if (filters.month !== 'all') {
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        filename += `_${monthNames[parseInt(filters.month)]}`;
+      }
+      
+      filename += `_${new Date().toISOString().split('T')[0]}.pdf`;
+      
+      pdf.save(filename);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+    } finally {
+      setPdfLoading(false);
     }
   };
 
@@ -575,7 +990,7 @@ const Reports = () => {
               <div className="metric-content">
                 <h3>Total Bookings</h3>
                 <p className="metric-value">{bookingStats.totalCount || reportData.totalBookings}</p>
-                {renderGrowth(monthlyGrowth.bookingsGrowth)} {/* In the future, this could be calculated from real data */}
+                {renderGrowth(monthlyGrowth.bookingsGrowth)} 
               </div>
             </div>
             
@@ -586,7 +1001,7 @@ const Reports = () => {
               <div className="metric-content">
                 <h3>Total Payments</h3>
                 <p className="metric-value">{reportData.totalPayments}</p>
-                {renderGrowth(monthlyGrowth.paymentsGrowth)} {/* In the future, this could be calculated from real data */}
+                {renderGrowth(monthlyGrowth.paymentsGrowth)} 
               </div>
             </div>
             
@@ -597,7 +1012,7 @@ const Reports = () => {
               <div className="metric-content">
                 <h3>Total Customers</h3>
                 <p className="metric-value">{sumaryStats.customerCount || reportData.totalCustomers}</p>
-                {renderGrowth(5)} {/* In the future, this could be calculated from real data */}
+                {renderGrowth(5)} 
               </div>
             </div>
             
@@ -608,12 +1023,10 @@ const Reports = () => {
               <div className="metric-content">
                 <h3>Total Revenue</h3>
                 <p className="metric-value">{formatCurrency(sumaryStats.totalRevenue || reportData.totalRevenue)}</p>
-                {renderGrowth(monthlyGrowth.revenueGrowth)} {/* In the future, this could be calculated from real data */}
+                {renderGrowth(monthlyGrowth.revenueGrowth)}
               </div>
             </div>
-          </div>
-
-          {/* Charts Section */}
+          </div>          {/* Charts Section */}
           <div className="charts-section">
             <div className="chart-container">
               <h2>Monthly Booking & Payment Trends</h2>              <ResponsiveContainer width="100%" height={300}>
@@ -645,7 +1058,8 @@ const Reports = () => {
             
             <div className="charts-row">
               <div className="chart-container half-width">
-                <h2>Revenue by Month</h2>                <ResponsiveContainer width="100%" height={250}>
+                <h2>Revenue by Month</h2>                
+                <ResponsiveContainer width="100%" height={250}>
                   <BarChart
                     data={monthlyData}
                     margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
@@ -663,7 +1077,8 @@ const Reports = () => {
               </div>
               
               <div className="chart-container half-width">
-                <h2>Payment Methods</h2>                <ResponsiveContainer width="100%" height={250}>
+                <h2>Payment Methods</h2>                
+                <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
                     <Pie
                       data={paymentMethods}
@@ -673,87 +1088,399 @@ const Reports = () => {
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent, index }) => {
+                        // Adding index to ensure uniqueness
+                        return (
+                          <text 
+                            key={`label-${name}-${index}`} 
+                            x={0} 
+                            y={0} 
+                            textAnchor="middle" 
+                            dominantBaseline="central"
+                          >
+                            {`${name} ${(percent * 100).toFixed(0)}%`}
+                          </text>
+                        );
+                      }}
                     >
                       {paymentMethods.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell key={`cell-${entry.name}-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value, name) => [`${value} payments`, name]} />
+                    <Tooltip formatter={(value, name, props) => [`${value} payments`, name]} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
-          </div>
-
-          {/* Summary Tables */}
-          <div className="summary-tables">
-            <div className="summary-table-container">
-              <div className="table-header">
-                <h2>Recent Bookings</h2>
-                <button className="view-all-btn">
-                  <Eye size={16} />
-                  View All
-                </button>
-              </div>              <table className="summary-table">
-                <thead>
-                  <tr>
-                    <th>Booking ID</th>
-                    <th>Customer</th>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentBookings.length > 0 ? (
-                    recentBookings.map((booking) => (
-                      <tr key={booking.id}>
-                        <td>{booking.id}</td>
-                        <td>{booking.customerName}</td>
-                        <td>{formatDate(booking.date)}</td>
-                        <td className="amount-cell">{formatCurrency(booking.amount)}</td>
-                        <td>{renderStatus(booking.status)}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="5" style={{ textAlign: 'center' }}>No recent bookings found</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+          </div>          
+            {/* Report Tabs */}
+          <div className="reports-tabs-container">
+            <div className="reports-tabs">
+              <button 
+                className={`tab-button ${activeTab === 'bookings' ? 'active' : ''}`}
+                onClick={() => setActiveTab('bookings')}
+              >
+                <Calendar size={18} />
+                Booking Reports
+              </button>
+              <button 
+                className={`tab-button ${activeTab === 'payments' ? 'active' : ''}`}
+                onClick={() => setActiveTab('payments')}
+              >
+                <DollarSign size={18} />
+                Payment Reports
+              </button>
+              <button 
+                className={`tab-button ${activeTab === 'packages' ? 'active' : ''}`}
+                onClick={() => setActiveTab('packages')}
+              >
+                <Package size={18} />
+                Package Reports
+              </button>
             </div>
             
-            <div className="summary-table-container">
-              <div className="table-header">
-                <h2>Monthly Summary</h2>
-                <button className="view-all-btn">
-                  <Eye size={16} />
-                  View All
-                </button>
-              </div>              <table className="summary-table">
-                <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th>Bookings</th>
-                    <th>Payments</th>
-                    <th>Revenue</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {monthlyData.map((month) => (
-                    <tr key={month.month}>
-                      <td>{month.month}</td>
-                      <td>{month.bookings}</td>
-                      <td>{month.payments}</td>
-                      <td className="amount-cell">{formatCurrency(month.revenue)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            {/* Tab Content */}
+            <div className="tab-content">
+              {/* Booking Reports Tab */}
+              {activeTab === 'bookings' && (
+                <div className="summary-tables">
+                  <div className="summary-table-container" ref={bookingReportRef}>
+                    <div className="table-header">
+                      <h2>Booking Report</h2>
+                      <div className="report-actions">
+                        <button 
+                          className="pdf-export-btn" 
+                          onClick={generatePDF} 
+                          disabled={pdfLoading}
+                        >
+                          {pdfLoading ? 'Generating PDF...' : (
+                            <>
+                              <FileText size={16} />
+                              Export as PDF
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Filter Controls */}
+                    <div className="report-filters">
+                      <div className="filter-group">
+                        <label>Event Tier:</label>
+                        <select 
+                          value={filters.eventTier} 
+                          onChange={(e) => handleFilterChange('eventTier', e.target.value)}
+                        >
+                          <option value="all">All Tiers</option>
+                          {eventTiers.map((tier, index) => (
+                            <option 
+                              key={`event-tier-${tier.packageTierId || tier.packageTierName}-${index}`} 
+                              value={tier.packageTierName}
+                            >
+                              {tier.packageTierName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div className="filter-group">
+                        <label>Event Type:</label>
+                        <select 
+                          value={filters.eventType} 
+                          onChange={(e) => handleFilterChange('eventType', e.target.value)}
+                        >
+                          <option value="all">All Types</option>
+                          {eventTypes.map((type, index) => (
+                            <option 
+                              key={`event-type-${type.id || type.eventName}-${index}`} 
+                              value={type.eventName}
+                            >
+                              {type.eventName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div className="filter-group">
+                        <label>Booking Status:</label>
+                        <select 
+                          value={filters.status} 
+                          onChange={(e) => handleFilterChange('status', e.target.value)}
+                        >
+                          <option value="all">All Statuses</option>
+                          <option value="Confirmed">Confirmed</option>
+                          <option value="Pending">Pending</option>
+                          <option value="Cancelled">Cancelled</option>
+                          <option value="Pencil">Pencil</option>
+                        </select>
+                      </div>
+                      
+                      <div className="filter-group">
+                        <label>Month:</label>
+                        <select 
+                          value={filters.month} 
+                          onChange={(e) => handleFilterChange('month', e.target.value)}
+                        >
+                          <option value="all">All Months</option>
+                          <option value="0">January</option>
+                          <option value="1">February</option>
+                          <option value="2">March</option>
+                          <option value="3">April</option>
+                          <option value="4">May</option>
+                          <option value="5">June</option>
+                          <option value="6">July</option>
+                          <option value="7">August</option>
+                          <option value="8">September</option>
+                          <option value="9">October</option>
+                          <option value="10">November</option>
+                          <option value="11">December</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <table className="summary-table">
+                      <thead>
+                        <tr>
+                          <th>Booking ID</th>
+                          <th>Customer</th>
+                          <th>Date</th>
+                          <th>Amount</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredBookings.length > 0 ? (
+                          filteredBookings.slice(0, 5).map((booking) => (
+                            <tr key={booking.id}>
+                              <td>{booking.id}</td>
+                              <td>{booking.customerName}</td>
+                              <td>{formatDate(booking.date)}</td>
+                              <td className="amount-cell">{formatCurrency(booking.amount)}</td>
+                              <td>{renderStatus(booking.status)}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="5" style={{ textAlign: 'center' }}>No recent bookings found</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                    
+                    {filteredBookings.length > 5 && (
+                      <div className="view-all-booking-btn-container">
+                        <button 
+                          className="view-all-booking-btn"
+                          onClick={() => navigate('/detailed-booking-report', { state: { filters } })}
+                        >
+                          <Eye size={16} />
+                          View All Bookings ({filteredBookings.length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="summary-table-container">
+                    <div className="table-header">
+                      <h2>Monthly Summary</h2>
+                      <button className="view-all-btn">
+                        <Eye size={16} />
+                        View All
+                      </button>
+                    </div>              
+                    <table className="summary-table">
+                      <thead>
+                        <tr>
+                          <th>Month</th>
+                          <th>Bookings</th>
+                          <th>Payments</th>
+                          <th>Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthlyData.map((month) => (
+                          <tr key={month.month}>
+                            <td>{month.month}</td>
+                            <td>{month.bookings}</td>
+                            <td>{month.payments}</td>
+                            <td className="amount-cell">{formatCurrency(month.revenue)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              
+              {/* Payment Reports Tab */}              
+              {activeTab === 'payments' && (
+                <div className="summary-tables">
+                  <div className="summary-table-container" ref={paymentReportRef}>
+                    <div className="table-header">
+                      <h2>Payment Report</h2>
+                      <div className="report-actions">
+                        <button 
+                          className="pdf-export-btn" 
+                          onClick={generatePaymentPDF} 
+                          disabled={pdfLoading}
+                        >
+                          {pdfLoading ? 'Generating PDF...' : (
+                            <>
+                              <FileText size={16} />
+                              Export as PDF
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="payment-report-filters">
+                      <div className="filter-group">
+                        <label>Payment Method:</label>
+                        <select 
+                          value={paymentFilters.method} 
+                          onChange={(e) => handlePaymentFilterChange('method', e.target.value)}
+                        >
+                          <option value="all">All Methods</option>
+                          <option value="bankTransfer">Bank Transfer</option>
+                          <option value="creditCard">Credit Card</option>
+                          <option value="cash">Cash</option>
+                          <option value="paypal">PayPal</option>
+                        </select>
+                      </div>
+                      
+                      <div className="filter-group">
+                        <label>Payment Status:</label>
+                        <select 
+                          value={paymentFilters.status} 
+                          onChange={(e) => handlePaymentFilterChange('status', e.target.value)}
+                        >
+                          <option value="all">All Statuses</option>
+                          <option value="Confirmed">Confirmed</option>
+                          <option value="Pending">Pending</option>
+                          <option value="Rejected">Rejected</option>
+                        </select>
+                      </div>
+                      
+                      <div className="filter-group">
+                        <label>Month:</label>
+                        <select 
+                          value={paymentFilters.month} 
+                          onChange={(e) => handlePaymentFilterChange('month', e.target.value)}
+                        >
+                          <option value="all">All Months</option>
+                          <option value="0">January</option>
+                          <option value="1">February</option>
+                          <option value="2">March</option>
+                          <option value="3">April</option>
+                          <option value="4">May</option>
+                          <option value="5">June</option>
+                          <option value="6">July</option>
+                          <option value="7">August</option>
+                          <option value="8">September</option>
+                          <option value="9">October</option>
+                          <option value="10">November</option>
+                          <option value="11">December</option>
+                        </select>
+                      </div>
+                      
+                      <div className="filter-group">
+                        <label>Year:</label>
+                        <select 
+                          value={paymentFilters.year} 
+                          onChange={(e) => handlePaymentFilterChange('year', e.target.value)}
+                        >
+                          <option value="all">All Years</option>
+                          <option value="2025">2025</option>
+                          <option value="2024">2024</option>
+                          <option value="2023">2023</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="payment-summary">
+                      <div className="summary-item">
+                        <h3>Total Payments</h3>
+                        <p className="summary-value">{filteredPayments.length}</p>
+                      </div>
+                      <div className="summary-item">
+                        <h3>Total Amount</h3>
+                        <p className="summary-value">{formatCurrency(filteredPayments.reduce((sum, payment) => sum + parseFloat(payment.amount || 0), 0))}</p>
+                      </div>
+                    </div>
+                    
+                    <table className="summary-table">
+                      <thead>
+                        <tr>
+                          <th>Payment ID</th>
+                          <th>Booking ID</th>
+                          <th>Customer</th>
+                          <th>Date</th>
+                          <th>Amount</th>
+                          <th>Method</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredPayments.length > 0 ? (
+                          filteredPayments.slice(0, 10).map((payment) => (
+                            <tr key={payment.id}>
+                              <td>{payment.id}</td>
+                              <td>{payment.bookingId}</td>
+                              <td>{payment.customerName}</td>
+                              <td>{formatDate(payment.date)}</td>
+                              <td className="amount-cell">{formatCurrency(payment.amount)}</td>
+                              <td>{payment.method}</td>
+                              <td>{renderStatus(payment.status)}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="8" style={{ textAlign: 'center' }}>No payments found matching your filters</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                    
+                    {filteredPayments.length > 10 && (
+                      <div className="view-all-booking-btn-container">
+                        <button 
+                          className="view-all-booking-btn"
+                          onClick={() => navigate('/detailed-payment-report', { state: { paymentFilters } })}
+                        >
+                          <Eye size={16} />
+                          View All Payments ({filteredPayments.length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Package Reports Tab */}
+              {activeTab === 'packages' && (
+                <div className="summary-tables">
+                  <div className="summary-table-container">
+                    <div className="table-header">
+                      <h2>Package Report</h2>
+                      <div className="report-actions">
+                        <button className="pdf-export-btn">
+                          <FileText size={16} />
+                          Export as PDF
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="empty-state">
+                      <Package size={48} />
+                      <h3>Package Reports Coming Soon</h3>
+                      <p>We're working on detailed package analytics. Check back soon!</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>          </div>
+          {/* Removing the duplicate content that was outside the tabs */}
         </>
       )}
     </div>

@@ -103,14 +103,10 @@ export const getDetailedBookings = async (req, res) => {
       SELECT 
         b.bookingId as id,
         c.fullName as customerName,
-        c.email,
-        c.phone,
-        b.createdAt as date,
-        b.eventDate as checkIn,
-        b.endTime as checkOut,
-        p.packagePrice as amount,
+        c.billingMobile,
+        b.eventDate as date,
+        p.investment as amount,
         b.bookingStatus as status,
-        b.noOfGuests as guests
       FROM 
         booking b
       JOIN 
@@ -175,8 +171,7 @@ export const getDetailedPayments = async (req, res) => {
         p.paymentDate as date,
         p.paymentAmount as amount,
         p.paymentMethod as method,
-        p.paymentStatus as status,
-        p.referenceId as referenceNo
+        p.paymentStatus as status
       FROM 
         payment p
       JOIN 
