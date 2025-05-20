@@ -356,6 +356,7 @@ const getPaymentStats = async (req, res) => {
     }
 };
 
+
 /**
  * Create a new bank deposit record
  */
@@ -386,67 +387,76 @@ const createBankDeposit = async (req, res) => {
     }
 };
 
-/**
- * Create a new payment record
- */
 const createPayment = async (req, res) => {
     try {
-        const { bookingId, paymentAmount, paymentMethod, bankDepositId, creditCardId } = req.body;
+        let newCreditCardId = null;
+        let bankDepositId = null;
+
+        const { bookingId, paymentAmount, paymentMethod, receiptFile, referenceNumber } = req.body;
+        if (!bookingId || !paymentAmount || !paymentMethod) {
+            console.log(err)
+            return res.status(400).json({ message: 'Booking ID, payment amount, and payment method are required' });
+        }
+
+        // get the last paymentId
+        const lastPaymentQuery = `SELECT paymentId FROM payment ORDER BY paymentId DESC LIMIT 1`;
+        const [lastPaymentResult] = await queryDatabase(lastPaymentQuery);
+        if(lastPaymentResult.length === 0) {
+            return res.status(500).json({ message: 'Failed to retrieve last payment record' });
+        }
+        // create new paymentId
+        const newPaymentId = lastPaymentResult.paymentId + 1;
         
+        if(paymentMethod === 'bankTransfer') {
+            // if there is a bank deposit, create a new bank deposit record
+            // get the last bank depositId
+            const lastBankDepositQuery = `SELECT bankDepositId FROM bankdeposits ORDER BY bankDepositId DESC LIMIT 1`;
+            const [lastBankDepositResult] = await queryDatabase(lastBankDepositQuery);
+            if(lastBankDepositResult.length === 0) {
+                return res.status(500).json({ message: 'Failed to retrieve last bank deposit record' });
+            }
+           
+            bankDepositId = lastBankDepositResult.bankDepositId+ 1;
+            // create a new bank deposit record
+            const bankDepositQuery = `
+                INSERT INTO bankdeposits (bankDepositId, referenceNo, receiptImage, depositAmount)
+                VALUES (?, ?, ?, ?)
+            `;
+            const bankDepositResult = await queryDatabase(bankDepositQuery, [
+                lastBankDepositResult.bankDepositId + 1,
+                referenceNumber,
+                receiptFile,
+                paymentAmount
+            ]);
+            if (bankDepositResult.affectedRows === 0) {
+                return res.status(500).json({ message: 'Failed to create bank deposit record' });
+            }
+        }
+
+        // insert payment record
         const query = `
-            INSERT INTO payment (bookingId, paymentAmount, paymentDate, paymentMethod, bankDepositId, creditCardId, paymentStatus)
-            VALUES (?, ?, NOW(), ?, ?, ?, ?)
+            INSERT INTO payment (paymentId, bookingId, paymentAmount, paymentMethod, bankDepositId, creditCardId, paymentStatus)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
-        
-        // If it's a bank transfer, it needs approval
-        const paymentStatus = paymentMethod === 'bankTransfer' ? 'pending' : 'confirmed';
-        
-        const [result] = await db.query(query, [
+        const paymentResult = await queryDatabase(query, [
+            newPaymentId, 
             bookingId, 
             paymentAmount, 
             paymentMethod, 
-            bankDepositId || null, 
-            creditCardId || null, 
-            paymentStatus
+            bankDepositId,
+            newCreditCardId, // creditCardId
+            'Pending' // default status
         ]);
-        
-        // If it's a credit card payment, update booking balance immediately
-        if (paymentMethod !== 'bankTransfer') {
-            // Get current balance amount
-            const balanceQuery = `SELECT balanceAmount FROM booking WHERE bookingId = ?`;
-            const [balanceResult] = await db.query(balanceQuery, [bookingId]);
-            
-            if (balanceResult.length > 0) {
-                const currentBalance = parseFloat(balanceResult[0].balanceAmount);
-                const newBalance = currentBalance - parseFloat(paymentAmount);
-                
-                // Update booking balance
-                const updateBalanceQuery = `
-                    UPDATE booking
-                    SET balanceAmount = ?
-                    WHERE bookingId = ?
-                `;
-                
-                await db.query(updateBalanceQuery, [newBalance >= 0 ? newBalance : 0, bookingId]);
-                
-                // If balance is 0, update booking status to confirmed (if it was pending)
-                if (newBalance <= 0) {
-                    const updateStatusQuery = `
-                        UPDATE booking
-                        SET bookingStatus = 'Confirmed'
-                        WHERE bookingId = ? AND bookingStatus = 'Pending'
-                    `;
-                    
-                    await db.query(updateStatusQuery, [bookingId]);
-                }
-            }
+        if (paymentResult.affectedRows >  0) {
+            return res.status(201).json({
+                message: 'Payment created successfully',
+                paymentId: newPaymentId,
+                bankDepositId: bankDepositId,
+                paymentStatus: 'Confirmed'
+            });
+        } else { 
+            return res.status(500).json({ message: 'Failed to create payment record' });
         }
-        
-        res.status(201).json({
-            message: 'Payment created successfully',
-            paymentId: result.insertId,
-            paymentStatus
-        });
     } catch (error) {
         console.error('Error creating payment:', error);
         res.status(500).json({ message: 'Internal server error', error: error.message });

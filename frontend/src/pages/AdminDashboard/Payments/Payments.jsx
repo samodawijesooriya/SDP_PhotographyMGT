@@ -20,7 +20,7 @@ const Payments = () => {
   const fetchPayments = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${url}/api/payments`, {
+      const response = await axios.get(`${url}/api/payments/`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -41,7 +41,7 @@ const Payments = () => {
     const fetchTabData = async () => {
       try {
         setIsLoading(true);
-        let endpoint = `${url}/api/payments`;
+        let endpoint = `${url}/api/payment`;
         
         if (activeTab === 'pending') {
           endpoint = `${url}/api/payments/pendingPayment`;

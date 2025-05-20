@@ -71,7 +71,6 @@ const Events = () => {
     try {
       const updatedEvent = {
         ...event,
-        eventDate: new Date(),
         notes: editNotes,
         bookingStatus: editStatus
       };
@@ -79,7 +78,7 @@ const Events = () => {
       console.log(event.eventDate);
       // using axios to send a PUT request to update the event
       const response = await axios.put(
-        `${url}/api/bookings/${event.bookingId}`, 
+        `${url}/api/bookings/events/${event.bookingId}`, 
         updatedEvent,
         {
           headers: {

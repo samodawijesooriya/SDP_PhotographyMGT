@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import './Events.css';
 import { StoreContext } from '../../context/StoreContext';
 import axios from 'axios';
@@ -30,7 +30,6 @@ const Events = () => {
   // get the userid from local storage]
   // userData	{"userID":7,"username":"Customer02","email":"customer02@gmail.com","role":"customer"}
   const userData = JSON.parse(localStorage.getItem('userData'));
-
   const fetchUserBookings = async () => {
     try {
       setIsLoading(true);
@@ -45,11 +44,24 @@ const Events = () => {
       if (!bookingdata) {
         throw new Error('Failed to fetch bookings');
       }
-      setBookings(bookingdata);
+      
+      // Process bookings: if bookingType is CompletedBooking, set the bookingStatus to match the delivery stage
+      const processedBookings = bookingdata.map(booking => {
+        if (booking.bookingType === 'CompletedBooking') {
+          // If it doesn't already have a valid delivery stage status, set it to "Completed" 
+          // (first stage of delivery progress)
+          if (!deliveryStages.some(stage => stage.status === booking.bookingStatus)) {
+            return { ...booking, bookingStatus: 'Completed' };
+          }
+        }
+        return booking;
+      });
+      
+      setBookings(processedBookings);
       setError(null);
       
       // Fetch package details for each booking
-      await Promise.all(bookingdata.map(booking => fetchPackageDetails(booking.packageId)));
+      await Promise.all(processedBookings.map(booking => fetchPackageDetails(booking.packageId)));
     } catch (error) {
       console.error('Error fetching bookings:', error);
       setError('Failed to fetch bookings. Please try again.');
@@ -131,12 +143,21 @@ const Events = () => {
       return 'Unpaid';
     }
   };
-
   // View a specific booking
   const viewBookingDetails = (booking) => {
-    setSelectedBooking(booking);
+    // Process booking to ensure proper delivery stage is set if needed
+    let processedBooking = { ...booking };
+    
+    // If this is a completed booking type but doesn't have a delivery stage status,
+    // set it to the first delivery stage (Completed)
+    if (isCompletedBookingType(processedBooking) && 
+        !isInDeliveryStage(processedBooking)) {
+      processedBooking.bookingStatus = 'Completed';
+    }
+    
+    setSelectedBooking(processedBooking);
     setIsDetailView(true);
-    setPaymentAmount(parseFloat(booking.balanceAmount) || 0);
+    setPaymentAmount(parseFloat(processedBooking.balanceAmount) || 0);
   };
 
   // Go back to the bookings list
@@ -230,7 +251,7 @@ const Events = () => {
     try {
       const formData = new FormData();
       formData.append('bookingId', selectedBooking.bookingId);
-      formData.append('amount', paymentAmount);
+      formData.append('paymentAmount', paymentAmount);
       formData.append('paymentMethod', paymentMethod);
       // append the reference number if payment method is bank transfer
       
@@ -239,19 +260,32 @@ const Events = () => {
         formData.append('referenceNumber', referenceNumber);
       }
 
+      const data = {
+        bookingId: selectedBooking.bookingId,
+        paymentAmount: paymentAmount,
+        paymentMethod: paymentMethod,
+        referenceNumber: referenceNumber
+      };
+
       // print the form data
-      console.log('Form Data:', Object.fromEntries(formData.entries()));
-      const response = await axios.post(`${url}/api/bookings/payment`, formData, {
+      console.log('Form Data:', data);
+      const response = await axios.post(`${url}/api/payment/create`, data, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
-      });
-      
+      }); 
       setPaymentSuccess(true);
       
       // Update the booking in state
       const updatedBooking = response.data;
+      
+      // Process the updated booking to set the correct delivery stage if needed
+      if (updatedBooking.bookingType === 'CompletedBooking' && 
+          !deliveryStages.some(stage => stage.status === updatedBooking.bookingStatus)) {
+        updatedBooking.bookingStatus = 'Completed'; // Set to first delivery stage
+      }
+      
       setBookings(bookings.map(b => 
         b.bookingId === updatedBooking.bookingId ? updatedBooking : b
       ));
@@ -290,21 +324,19 @@ const Events = () => {
           <button className="create-booking-btn">Book a Session Now</button>
         </div>
       );
-    }
-
-    return (      
-      <div className="bookings-container">
+    }    return (      
+      <div className="your-bookings-container">
         {bookings.map((booking) => {
           const packageInfo = packages[booking.packageId] || {};
           const paymentStatus = calculatePaymentStatus(booking.investedAmount, booking.balanceAmount);
           
           return (
-            <div key={booking.bookingId} className="booking-card">
-              <div className="booking-header">
+            <div key={booking.bookingId} className="your-booking-card">
+              <div className="your-booking-header">
                 <h3>{booking.eventName || 'Untitled Booking'} Booking</h3>
-                <div className="booking-date">{formatDate(booking.eventDate)}</div>
+                <div className="your-booking-date">{formatDate(booking.eventDate)}</div>
               </div>
-              <div className="booking-details">
+              <div className="your-booking-details">
                 <div className="customer-info">
                   <h4>Customer Information</h4>
                   <p><strong>Name:</strong> {booking.fullName}</p>
@@ -334,8 +366,7 @@ const Events = () => {
                     <p className="booking-description"><strong>Notes:</strong> {booking.notes}</p>
                   )}
                 </div>
-              </div>
-              <div className="booking-status-container">
+              </div>              <div className="your-booking-status-container">
                 <div className="status-item">
                   <span className="status-label">Payment:</span>
                   {renderStatus(paymentStatus)}
@@ -345,7 +376,7 @@ const Events = () => {
                   {renderStatus(booking.bookingStatus)}
                 </div>
               </div>              
-              <div className="booking-actions">
+              <div className="your-booking-actions">
                 <button 
                   className="view-details-btn"
                   onClick={() => viewBookingDetails(booking)}
@@ -398,6 +429,45 @@ const Events = () => {
       </div>
     );
   };
+  // Helper functions for delivery stages
+  const isCompletedBookingType = (booking) => {
+    return booking && booking.bookingType === 'CompletedBooking';
+  };
+
+  const isInDeliveryStage = (booking) => {
+    return booking && deliveryStages.some(stage => stage.status === booking.bookingStatus);
+  };
+
+  const shouldShowDeliveryProgress = (booking) => {
+    return isCompletedBookingType(booking) || isInDeliveryStage(booking);
+  };
+
+  // Define the 5 stages of the delivery process
+  const deliveryStages = [
+    { id: 1, name: "Completed Booking", status: "Completed", progress: 0 },
+    { id: 2, name: "Image Editing", status: "ImageEditing", progress: 25 },
+    { id: 3, name: "Preparing Other Items", status: "PreparingItems", progress: 50 },
+    { id: 4, name: "Finalizing", status: "Finalizing", progress: 75 },
+    { id: 5, name: "Finished", status: "Finished", progress: 100 }
+  ];
+
+  // Helper function to get current delivery stage
+  const getCurrentDeliveryStage = (status) => {
+    const stage = deliveryStages.find(s => s.status === status);
+    return stage ? stage : deliveryStages[0]; // Default to first stage if not found
+  };
+
+  // Helper function to determine stage class
+  const getDeliveryStageClass = (stageIndex, currentStageIndex) => {
+    if (stageIndex === currentStageIndex) {
+      return "active";
+    } else if (stageIndex < currentStageIndex) {
+      return "completed";
+    } else {
+      return "pending";
+    }
+  };
+
   return (
     <div className="events-page">
       {isDetailView && selectedBooking ? (
@@ -426,24 +496,73 @@ const Events = () => {
               <div className="progress-connector"></div>
               
               <div className={`progress-step ${selectedBooking.bookingStatus !== 'Pending' ? 'completed' : 'pending'}`}>
-                <div className="step-icon">{selectedBooking.bookingStatus !== 'Pending' ? <Check size={20} /> : 2}</div>
+                <div className="step-icon">{selectedBooking.bookingStatus !== 'Pending' ? <Check size={20} /> : '2'}</div>
                 <div className="step-label">Confirmed</div>
               </div>
-              <div className={`progress-connector ${selectedBooking.bookingStatus === 'Completed' ? 'completed' : 'pending'}`}></div>
+              <div className="progress-connector"></div>
               
-              {selectedBooking.bookingStatus === 'Cancelled' ? (
-                <div className="progress-step cancelled">
-                  <div className="step-icon"><X size={20} /></div>
-                  <div className="step-label">Cancelled</div>
+              <div className={`progress-step ${selectedBooking.bookingStatus === 'Completed' || selectedBooking.bookingStatus === 'Cancelled' ? selectedBooking.bookingStatus.toLowerCase() : 'pending'}`}>
+                <div className="step-icon">
+                  {selectedBooking.bookingStatus === 'Completed' ? <Check size={20} /> : selectedBooking.bookingStatus === 'Cancelled' ? <X size={20} /> : '3'}
                 </div>
-              ) : (
-                <div className={`progress-step ${selectedBooking.bookingStatus === 'Completed' ? 'completed' : 'pending'}`}>
-                  <div className="step-icon">{selectedBooking.bookingStatus === 'Completed' ? <Check size={20} /> : 3}</div>
-                  <div className="step-label">Completed</div>
-                </div>
-              )}
+                <div className="step-label">{selectedBooking.bookingStatus === 'Cancelled' ? 'Cancelled' : 'Completed'}</div>
+              </div>
             </div>
-          </div>
+          </div>          {/* Delivery Progress Tracker - Show for CompletedBooking type or when bookingStatus matches a delivery stage */}
+          {shouldShowDeliveryProgress(selectedBooking) && (
+            <div className="delivery-progress-container">
+              <div className="delivery-status-header">
+                <h3>Delivery Progress</h3>
+                <div className="delivery-badge-large">
+                  {deliveryStages.find(stage => stage.status === selectedBooking.bookingStatus)?.name || 'Completed Booking'}
+                </div>
+              </div>
+              
+              <div className="delivery-progress">
+                {deliveryStages.map((stage, index) => {
+                  // Find the current stage index
+                  const currentStageIndex = deliveryStages.findIndex(s => s.status === selectedBooking.bookingStatus);
+                  // If nothing found, default to the first stage (Completed Booking)
+                  const actualStageIndex = currentStageIndex === -1 ? 0 : currentStageIndex;
+                  // Determine the class for this stage
+                  const stageClass = getDeliveryStageClass(index, actualStageIndex);
+                  
+                  return (
+                    <React.Fragment key={stage.id}>
+                      <div className={`delivery-step ${stageClass}`}>
+                        <div className="delivery-icon">
+                          {stageClass === 'completed' ? <Check size={18} /> : stage.id}
+                        </div>
+                        <div className="delivery-label">{stage.name}</div>
+                      </div>
+                      
+                      {index < deliveryStages.length - 1 && (
+                        <div className="delivery-connector"></div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+              
+              <div className="delivery-stage-description">
+                {selectedBooking.bookingStatus === 'Completed' && (
+                  <p>Your booking is complete. We'll begin processing your photos soon.</p>
+                )}
+                {selectedBooking.bookingStatus === 'ImageEditing' && (
+                  <p>We're currently editing your images to ensure they look their best.</p>
+                )}
+                {selectedBooking.bookingStatus === 'PreparingItems' && (
+                  <p>Your images are edited and we're now preparing any additional items included in your package.</p>
+                )}
+                {selectedBooking.bookingStatus === 'Finalizing' && (
+                  <p>We're finalizing everything and preparing for delivery.</p>
+                )}
+                {selectedBooking.bookingStatus === 'Finished' && (
+                  <p>Great news! Your photos and package items are ready. We'll contact you for delivery arrangements.</p>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="booking-detail-grid">
             <div className="detail-section">

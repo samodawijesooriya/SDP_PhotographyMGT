@@ -60,7 +60,7 @@ app.use('/api/home', homeRouter);
 
 app.use('/api/drive', driveRouter);
 
-app.use('/api/payments', paymentRouter);
+app.use('/api/payment', paymentRouter);
 
 app.use('/api/auth', passwordRouter);
 

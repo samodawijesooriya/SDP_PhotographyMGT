@@ -32,9 +32,7 @@ const ManageBookings = () => {
         bookingStatus: '',
         bookingType: '',
         notes: ''
-    });
-
-    const initialEditFormState = {
+    });    const initialEditFormState = {
         fullName: '',
         email: '',
         billingMobile: '',
@@ -44,6 +42,7 @@ const ManageBookings = () => {
         venue: '',
         totalAmount: 0,
         paidAmount: 0,
+        existingPaidAmount: 0,
         bookingStatus: '',
         bookingType: '',
         notes: '',
@@ -99,25 +98,40 @@ const ManageBookings = () => {
                 totalAmount: selectedPackage.investedAmount,
                 packageName: selectedPackage.packageName,
                 coverageHours: selectedPackage.coverageHours,
-                eventName: selectedPackage.eventName
+                eventName: selectedPackage.eventName,
             }));
             return;
           }
-        }
+        }          
+        if(name === 'paidAmount') {
+            let paidAmount = parseFloat(value) || 0;
+            const existingPaidAmount = parseFloat((editFormData.totalAmount - selectedBooking.balanceAmount)) || 0;
+            
+            // Ensure total of existing + new paid amount doesn't exceed total amount
+            editFormData.paidAmount = paidAmount + existingPaidAmount;
+            console.log('Paid Amount:', editFormData.paidAmount);
         
-        setEditFormData(prev => ({
-          ...prev,
-          [name]: value
-        }));
-   };   // Handle Edit Booking
+            setEditFormData(prev => ({
+                ...prev,
+                [name]: editFormData.paidAmount,
+            }));
+        }
 
+        // For all other fields, update normally
+        setEditFormData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+   };    
+   
    const handleEditBooking = (booking, e) => {
     e.stopPropagation();
     
     // Format date for the input field (YYYY-MM-DD)
     const formattedDate = booking.eventDate ? 
         new Date(booking.eventDate).toISOString().split('T')[0] : '';
-      // Set the form data with the booking information
+
+    // Set the form data with the booking information
     setEditFormData({
         fullName: booking.fullName || '',
         email: booking.email || '',
@@ -127,7 +141,6 @@ const ManageBookings = () => {
         eventTime: booking.eventTime || '',
         venue: booking.venue || '',
         totalAmount: booking.investedAmount || booking.totalAmount || 0,
-        paidAmount: booking.paidAmount || 0,
         bookingStatus: booking.bookingStatus || 'Pending',
         bookingType: booking.bookingType || 'Pencil',
         notes: booking.notes || '',
@@ -136,28 +149,39 @@ const ManageBookings = () => {
     
     setSelectedBooking(booking);
     setIsEditModalOpen(true);
-   };   const handleEditSubmit = async (e) => {
+   };   
+   
+    const handleEditSubmit = async (e) => {
         e.preventDefault();
         
         try {
-            const bookingData = {
-                ...editFormData,
-                totalAmount: parseFloat(editFormData.totalAmount),
-                paidAmount: parseFloat(editFormData.paidAmount)
-            };
-            
+            let finalSubmitData = {};
+            // If the booking is already fully paid
+            if (selectedBooking.balanceAmount <= 0.0) { 
+                finalSubmitData = {
+                    ...editFormData,
+                    paidAmount: editFormData.totalAmount
+                };
+            } else {
+                // If there's still a balance to be paid, combine new payment with existing payment
+                finalSubmitData = {
+                    ...editFormData,
+                    paidAmount: parseFloat(editFormData.paidAmount) + parseFloat((editFormData.totalAmount - selectedBooking.balanceAmount))
+                };
+            }
+            console.log('Final Submit Data:', finalSubmitData);
+
             // Check if we're editing or adding a new booking            
             if (selectedBooking) {
                 // Editing existing booking
-                console.log('Sending booking data:', bookingData);
-                await axios.put(`${url}/api/bookings/${selectedBooking.bookingId}`, bookingData);
-                console.log('Booking updated:', bookingData);
-                showSuccessAlert(`Booking for "${bookingData.fullName}" updated successfully!`, 'update');
+                await axios.put(`${url}/api/bookings/${selectedBooking.bookingId}`, finalSubmitData);
+                console.log('Booking updated:', finalSubmitData);
+                showSuccessAlert(`Booking for "${finalSubmitData.fullName}" updated successfully!`, 'update');
             } else {
                 // Adding new booking
-                console.log('Sending new booking data:', bookingData);
-                await axios.post(`${url}/api/bookings`, bookingData);
-                showSuccessAlert(`Booking for "${bookingData.fullName}" created successfully!`, 'success');
+                console.log('Sending new booking data:', finalSubmitData);
+                await axios.post(`${url}/api/bookings`, finalSubmitData);
+                showSuccessAlert(`Booking for "${finalSubmitData.fullName}" created successfully!`, 'success');
             }
             
             // Refresh bookings list
@@ -173,7 +197,6 @@ const ManageBookings = () => {
             showSuccessAlert('Failed to save booking. Please try again.', 'delete');
         }
     };
-
     const openDeleteModal = (booking) => {
         setBookingToDelete(booking);
         setDeleteModalOpen(true);
@@ -201,15 +224,14 @@ const ManageBookings = () => {
         setSelectedBooking(booking);
     };
 
-    const handleAddBooking = () => {
-        setEditFormData(initialEditFormState);
-    
-        // Set selected booking to null since we're creating a new one
-        setSelectedBooking(null);
+
+    // Calculate the remaining balance
+    const calculateRemainingBalance = (totalAmount, paidAmount = 0) => {
+        const total = parseFloat(totalAmount) || 0;
+        const paid = parseFloat(paidAmount) || 0;
         
-        // Open the edit modal but in "add" mode
-        setIsEditModalOpen(true);
-    }
+        return Math.max(0, total - paid);
+    };
 
     // Format date
     const formatDate = (dateString) => {
@@ -413,7 +435,7 @@ const ManageBookings = () => {
                     <th>Client</th>
                     <th>Event Date/Venue</th>
                     <th>Package</th>
-                    <th>Amount</th>
+                    <th>Balance Amount</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -448,7 +470,7 @@ const ManageBookings = () => {
                         <td className="payment-cell">
                         <div className="payment-info">
                             <div className="payment-balance">
-                            {formatCurrency(booking.investedAmount)}
+                            {formatCurrency(booking.balanceAmount)}
                             </div>
                         </div>
                         </td>
@@ -684,7 +706,8 @@ const ManageBookings = () => {
                             </div>
                             
                             <div className="booking-detail-section">
-                                <h3><CreditCard size={16} /> Booking Details</h3>                                <div className="form-group">
+                                <h3><CreditCard size={16} /> Booking Details</h3>                                
+                                <div className="form-group">
                                     <label htmlFor="totalAmount">Total Amount (LKR)</label>
                                     <input 
                                         type="number" 
@@ -696,19 +719,40 @@ const ManageBookings = () => {
                                         step="0.01"
                                         required
                                     />
+                                    <small className="helper-text">Based on selected package</small>
                                 </div>
+                                                              
+                                {/* Only show payment input if there's a balance to be paid */}
+                                {(selectedBooking.balanceAmount === 0.0) ? (
+                                    <div className="form-group">
+                                        <label htmlFor="paidAmount">Balance Payment (LKR)</label>
+                                        <input 
+                                            type="number" 
+                                            id="paidAmount" 
+                                            name="paidAmount"
+                                            value={editFormData.paidAmount}
+                                            onChange={handleEditFormChange}
+                                            min="0"
+                                            step="0.01"
+                                            max={editFormData.totalAmount}
+                                            required
+                                        />
+                                        <small className="helper-text">Existing paid amount: {formatCurrency(editFormData.totalAmount - selectedBooking.balanceAmount)}</small>
+                                    </div> 
+                                ) : (
+                                    <div className="form-group">
+                                        <div className="payment-status-notice">
+                                            <span className="paid-badge"> <strong> Fully Paid </strong></span>
+                                            <small> No additional payment required</small>
+                                        </div>
+                                    </div>
+                                )}
+                                
                                 <div className="form-group">
-                                    <label htmlFor="paidAmount">Paid Amount (LKR)</label>
-                                    <input 
-                                        type="number" 
-                                        id="paidAmount" 
-                                        name="paidAmount"
-                                        value={editFormData.paidAmount}
-                                        onChange={handleEditFormChange}
-                                        min="0"
-                                        step="0.01"
-                                        required
-                                    />
+                                    <label>Remaining Balance</label>
+                                    <div className="balance-display">
+                                    {formatCurrency(calculateRemainingBalance(editFormData.totalAmount, parseFloat(editFormData.totalAmount - selectedBooking.balanceAmount)))}
+                                    </div>
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="bookingStatus">Booking Status</label>
@@ -718,7 +762,7 @@ const ManageBookings = () => {
                                         value={editFormData.bookingStatus}
                                         onChange={handleEditFormChange}
                                         required
-                                    >                                        <option value="Pencil">Pencil</option>
+                                    >                                   
                                         <option value="Pending">Pending</option>
                                         <option value="Confirmed">Confirmed</option>
                                         <option value="Completed">Completed</option>

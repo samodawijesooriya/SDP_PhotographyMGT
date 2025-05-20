@@ -13,6 +13,7 @@ import CustomerManagement from './Customers/CustomerManagement';
 import Payments from './Payments/Payments';
 import Reports from './Reports/Reports';
 import HomeUi from './Home/Home';
+import StatusChanger from './StatusChanger/StatusChanger';
 import { useLocation } from 'react-router-dom';
 
 const AdminDashboard = () => {
@@ -238,7 +239,7 @@ const AdminDashboard = () => {
           {activeSection === 'StatusChanger' && (
             <div className="section-container">
               <h2>Status Changer</h2>
-              <ManageBookings />
+              <StatusChanger />
             </div>  
           )}
           {activeSection === 'users' && (

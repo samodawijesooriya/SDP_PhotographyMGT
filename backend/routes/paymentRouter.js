@@ -39,6 +39,8 @@ paymentRouter.post('/verify/:id', verifyPayment);
 paymentRouter.post('/bank-deposit', uploadReceipt, createBankDeposit);
 
 // Create payment record
-paymentRouter.post('/', createPayment);
+paymentRouter.post('/create', createPayment);
+
+
 
 export default paymentRouter;

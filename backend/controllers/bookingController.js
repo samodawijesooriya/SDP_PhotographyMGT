@@ -839,7 +839,7 @@ const getBookingsByDate = async (req, res) => {
       
       // If bookings exist, fetch the full booking details
       const query = `
-        SELECT b.*, c.fullName, c.email, c.billingAddress, c.billingMobile,
+        SELECT b.*, c.fullName, c.billingAddress, c.billingMobile,
                p.packageName, p.coverageHours, e.eventName
         FROM Booking b
         JOIN Customers c ON b.customerId = c.customerId
@@ -934,6 +934,100 @@ const cancelBooking = async (req, res) => {
   }
 };
 
+const getCompletedBookings = async (req, res) => {
+  try {
+    const query = `
+        SELECT 
+        b.*,
+        c.fullName, 
+        u.email, 
+        c.billingAddress, 
+        c.billingMobile,
+        p.packageName, 
+        p.coverageHours, 
+        p.investedAmount,
+        e.eventName,
+        COALESCE(p.investedAmount, 0) - COALESCE(pay_sum.total_paid, 0) AS balanceAmount
+    FROM 
+        Booking b
+    JOIN 
+        Customers c ON b.customerId = c.customerId
+    JOIN
+        user u ON c.userID = u.userID 
+    LEFT JOIN 
+        Package p ON b.packageId = p.packageId
+    LEFT JOIN 
+        Event e ON p.eventId = e.eventId
+    LEFT JOIN (
+        SELECT 
+            bookingId, 
+            SUM(paymentAmount) AS total_paid
+        FROM 
+            Payment
+        WHERE 
+            paymentStatus = 'Completed' OR paymentStatus = 'Pending'
+        GROUP BY 
+            bookingId
+    ) pay_sum ON pay_sum.bookingId = b.bookingId
+    WHERE 
+        b.bookingType = 'CompletedBooking'
+    ORDER BY 
+        b.eventDate DESC;
+    `;
+
+    const results = await queryDatabase(query);
+    if (results.length > 0) {
+      return res.json({
+        message: 'Fetched completed bookings successfully',
+        bookings: results
+      });
+    }else {
+      return res.json({
+        message: 'No completed bookings found',
+        bookings: []
+      });
+    }
+  } catch (error) {
+    console.error('Error in getDoneBookings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+    
+  }
+}
+
+const saveBookingStatus = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { bookingStatus, notes } = req.body;
+    
+    // check the booking id exists
+    if (!bookingId) {
+      return res.status(400).json({ error: 'Booking ID is required' });
+    }
+
+    // update the booking status
+    const updateQuery = `
+      UPDATE booking 
+      SET bookingStatus = ?, notes = ? 
+      WHERE bookingId = ?
+    `; 
+    console.log('Booking ID:', bookingId);
+    console.log('Booking Status:', bookingStatus);
+    console.log('Notes:', notes);
+    const result = await queryDatabase(updateQuery, [bookingStatus, notes, bookingId]);
+    if (result.affectedRows > 0) {
+      return res.json({ 
+        message: 'Booking status updated successfully',
+        bookingId,
+        bookingStatus,
+        notes
+      });
+    }
+  } catch (error) {
+    console.error('Error in saveBookingStatus:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 export {
   getAllBookings,
   deleteBooking,
@@ -944,5 +1038,7 @@ export {
   createPendingBooking,
   getBookingDates,
   getBookingByUserId,
-  cancelBooking
+  cancelBooking,
+  getCompletedBookings,
+  saveBookingStatus
 };

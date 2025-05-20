@@ -11,7 +11,9 @@ import {
     createPendingBooking,
     getBookingDates,
     getBookingByUserId,
-    cancelBooking
+    cancelBooking,
+    getCompletedBookings,
+    saveBookingStatus
 } from '../controllers/bookingController.js';
 
 import cleanupPencilBookings from '../controllers/cleanup-bookings.js';
@@ -32,6 +34,8 @@ bookingRouter.delete('/:id', deleteBooking);
 
 // Update a booking
 bookingRouter.put('/:id', updateBooking);
+
+bookingRouter.put('/events/:bookingId', saveBookingStatus);
 
 // Create a booking
 bookingRouter.post('/createPending', createPendingBooking);
@@ -59,6 +63,10 @@ bookingRouter.post('/cleanup', async (req, res) => {
       res.status(500).json({ message: 'Failed to trigger cleanup process' });
     }
 });
+
+bookingRouter.get('/status/done', getCompletedBookings);
+
+bookingRouter.put('/save/:bookingId', saveBookingStatus);
 
 export default bookingRouter;
 

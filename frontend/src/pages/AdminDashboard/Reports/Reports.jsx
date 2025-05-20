@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { DollarSign, Users, Calendar, TrendingUp, Filter, Download, Eye } from 'lucide-react';
 import './Reports.css';
 import { utils as XLSXUtils, writeFile } from 'xlsx';
+import axios from 'axios';
+import { StoreContext } from '../../../context/StoreContext';
 
 const Reports = () => {
   // Sample data - in a real app, this would come from an API
@@ -10,7 +12,7 @@ const Reports = () => {
     totalBookings: 247,
     totalPayments: 198,
     totalCustomers: 156,
-    totalRevenue: 3526500,
+    totalRevenue: 3555050,
     
     // Monthly data for charts
     monthlyData: [
@@ -44,6 +46,35 @@ const Reports = () => {
   const [dateRange, setDateRange] = useState('month');
   const [isLoading, setIsLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [bookingStats, setBookingStats] = useState([]);
+  const [sumaryStats, setSummaryStats] = useState([]);
+  const { url } = useContext(StoreContext);
+
+  const fetchBookingStats = async () => {
+    try {
+      const response = await axios.get(`${url}/api/home/booking-stats`);
+      if (response.status !== 200) {
+        throw new Error('Failed to fetch booking statistics');
+      }
+      setBookingStats(response.data);
+    } catch (error) {
+      console.error('Error fetching booking statistics:', error);
+    }
+  }
+
+  const fetchSummaryStats= async () => {
+    try {
+      const response = await axios.get(`${url}/api/home/sumary-stats`);
+      if (response.status !== 200) {
+        throw new Error('Failed to fetch customer count');
+      }
+      console.log("Customer count:", response.data);
+      setSummaryStats(response.data);
+      setReportData.totalRevenue = sumaryStats.totalRevenue;
+    } catch (error) {
+      console.error('Error fetching customer count:', error);
+    }
+  }
 
   // This is a placeholder for a real API call
   // In a real application, you would fetch this data from your backend
@@ -179,6 +210,11 @@ const Reports = () => {
       // You could show an error notification here
     }
   };
+
+  useEffect(() => {
+      fetchBookingStats();
+      fetchSummaryStats();
+    }, []);
 
   return (
     <div className="reports-container">
