@@ -69,13 +69,18 @@ const Events = () => {
   // Save event changes
   const saveEventChanges = async (event) => {
     try {
+      let bookingtype = '';
+      if(editStatus === "Completed"  || editStatus === "COMPLETED") {
+        bookingtype = "CompletedBooking";
+      }
       const updatedEvent = {
         ...event,
         notes: editNotes,
-        bookingStatus: editStatus
+        bookingStatus: editStatus,
+        bookingType: bookingtype,
       };
 
-      console.log(event.eventDate);
+      console.log(updatedEvent);
       // using axios to send a PUT request to update the event
       const response = await axios.put(
         `${url}/api/bookings/events/${event.bookingId}`, 
@@ -195,11 +200,11 @@ const Events = () => {
                         value={editStatus}
                         onChange={(e) => setEditStatus(e.target.value)}
                       >
-                        <option value="PENDING">Pending</option>
-                        <option value="CONFIRMED">Confirmed</option>
-                        <option value="COMPLETED">Completed</option>
-                        <option value="CANCELLED">Cancelled</option>
-                        <option value="DONE">Done</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Confirmed">Confirmed</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Cancelled">Cancelled</option>
+                        <option value="Finished">Finished</option>
                       </select>
                     ) : (
                       <span className={`event-status ${event.bookingStatus?.toLowerCase() || ''}`}>

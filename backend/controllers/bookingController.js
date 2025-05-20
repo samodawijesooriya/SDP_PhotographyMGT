@@ -1001,7 +1001,7 @@ const getCompletedBookings = async (req, res) => {
 const saveBookingStatus = async (req, res) => {
   try {
     const { bookingId } = req.params;
-    const { bookingStatus, notes } = req.body;
+    const { bookingStatus, notes, bookingType } = req.body;
     
     // check the booking id exists
     if (!bookingId) {
@@ -1011,12 +1011,43 @@ const saveBookingStatus = async (req, res) => {
     // update the booking status
     const updateQuery = `
       UPDATE booking 
-      SET bookingStatus = ?, notes = ? 
+      SET bookingStatus = ?, notes = ?, bookingType = ?
       WHERE bookingId = ?
     `; 
-    console.log('Booking ID:', bookingId);
-    console.log('Booking Status:', bookingStatus);
-    console.log('Notes:', notes);
+    
+    const result = await queryDatabase(updateQuery, [bookingStatus, notes, bookingType, bookingId]);
+    if (result.affectedRows > 0) {
+      return res.json({ 
+        message: 'Booking status updated successfully',
+        bookingId,
+        bookingStatus,
+        bookingType,
+        notes
+      });
+    }
+  } catch (error) {
+    console.error('Error in saveBookingStatus:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+const saveBookingOnlyStatus = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { bookingStatus, notes } = req.body;
+
+    // check the booking id exists
+    if (!bookingId) {
+      return res.status(400).json({ error: 'Booking ID is required' });
+    }
+
+    // update the booking status
+    const updateQuery = `
+      UPDATE booking 
+      SET bookingStatus = ?, notes = ?
+      WHERE bookingId = ?
+    `; 
+    
     const result = await queryDatabase(updateQuery, [bookingStatus, notes, bookingId]);
     if (result.affectedRows > 0) {
       return res.json({ 
@@ -1025,10 +1056,13 @@ const saveBookingStatus = async (req, res) => {
         bookingStatus,
         notes
       });
+    }else{
+      return res.status(404).json({ error: 'Booking not found' });
     }
   } catch (error) {
-    console.error('Error in saveBookingStatus:', error);
+    console.error('Error in saveBookingOnlyStatus:', error);
     res.status(500).json({ error: 'Internal server error' });
+    
   }
 }
 
@@ -1044,5 +1078,6 @@ export {
   getBookingByUserId,
   cancelBooking,
   getCompletedBookings,
-  saveBookingStatus
+  saveBookingStatus,
+  saveBookingOnlyStatus
 };

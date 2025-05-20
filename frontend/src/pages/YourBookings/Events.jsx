@@ -383,7 +383,7 @@ const Events = () => {
                 >
                   View Booking Details
                 </button>                
-                {booking.bookingStatus !== 'Cancelled' && booking.bookingStatus !== 'Completed' && (
+                {booking.bookingStatus !== 'Cancelled' && booking.bookingType !== 'CompletedBooking' && (
                   <button 
                     className="cancel-booking-btn"
                     onClick={(e) => {
@@ -485,7 +485,7 @@ const Events = () => {
           <div className="booking-progress-container">
             <div className="booking-status-header">
               <h3>Booking Progress</h3>
-              <div className="status-badge-large">{selectedBooking.bookingStatus}</div>
+              <div className="status-badge-large">{selectedBooking.bookingType === 'CompletedBooking' ? 'Completed' : 'Pending'}</div>
             </div>
             
             <div className="booking-progress">
@@ -501,14 +501,16 @@ const Events = () => {
               </div>
               <div className="progress-connector"></div>
               
-              <div className={`progress-step ${selectedBooking.bookingStatus === 'Completed' || selectedBooking.bookingStatus === 'Cancelled' ? selectedBooking.bookingStatus.toLowerCase() : 'pending'}`}>
+              <div className={`progress-step ${selectedBooking.bookingType === 'CompletedBooking' ? 'completed' : selectedBooking.bookingStatus === 'Cancelled' ? 'cancelled' : 'pending'}`}>
                 <div className="step-icon">
-                  {selectedBooking.bookingStatus === 'Completed' ? <Check size={20} /> : selectedBooking.bookingStatus === 'Cancelled' ? <X size={20} /> : '3'}
+                  {selectedBooking.bookingType === 'CompletedBooking' ? <Check size={20} /> : selectedBooking.bookingStatus === 'Cancelled' ? <X size={20} /> : '3'}
                 </div>
                 <div className="step-label">{selectedBooking.bookingStatus === 'Cancelled' ? 'Cancelled' : 'Completed'}</div>
               </div>
             </div>
-          </div>          {/* Delivery Progress Tracker - Show for CompletedBooking type or when bookingStatus matches a delivery stage */}
+          </div>          
+          
+          {/* Delivery Progress Tracker - Show for CompletedBooking type or when bookingStatus matches a delivery stage */}
           {shouldShowDeliveryProgress(selectedBooking) && (
             <div className="delivery-progress-container">
               <div className="delivery-status-header">

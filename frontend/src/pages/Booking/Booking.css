@@ -269,7 +269,11 @@
 
 /* Package details container styling */
 .package-details-container {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 20px;
   margin-top: 15px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .package-modal-content {
@@ -279,6 +283,7 @@
   margin-top: 15px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   border: 1px solid #e0e0e0;
+  color: #333;
 }
 
 .package-modal-content p {
@@ -292,6 +297,27 @@
 
 .package-modal-content li {
   margin-bottom: 5px;
+}
+
+.package-modal-content h3 {
+  text-align: center;
+  margin-bottom: 15px;
+  color: #333;
+  font-weight: 600;
+}
+
+.package-image-container.loading {
+  background-color: #f0f0f0;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .package-event-image {
+    max-height: 200px;
+  }
 }
 
 /* Event details container */
@@ -423,6 +449,26 @@
   font-size: 0.85rem;
   margin-top: 4px;
 }
+
+.package-image-container {
+  margin-bottom: 20px;
+  text-align: center;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.package-event-image {
+  width: 100%;
+  max-height: 250px;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.package-event-image:hover {
+  transform: scale(1.03);
+}
+
 
 /* Responsive adjustments */
 @media (max-width: 768px) {

@@ -6,6 +6,7 @@ import Footer from '../../components/Footer/Footer';
 import axios from 'axios';
 import { StoreContext } from '../../context/StoreContext';
 import { jwtDecode } from 'jwt-decode';
+import { assets } from '../../assets/assets';
 
 const Booking = ({setShowLogin}) => {
   const { url } = useContext(StoreContext);
@@ -21,6 +22,7 @@ const Booking = ({setShowLogin}) => {
   const [showDateError, setShowDateError] = useState(false);
   const [isDateAvailable, setIsDateAvailable] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [eventImage, setEventImage] = useState('');
 
   const location = useLocation();
   
@@ -131,6 +133,18 @@ const Booking = ({setShowLogin}) => {
     
     return error === '';
   }
+
+  const getEventImagePath = (eventName) => {
+    if (!eventName) return '';
+  
+    // Convert event name to a format suitable for filenames
+    // Remove spaces, convert to lowercase
+    const formattedName = eventName.toLowerCase().replace(/\s+/g, '-');
+    console.log('Formatted event name:', formattedName);
+  
+    // Return the path to the image (you may need to adjust this based on your actual file structure)
+    return `../assets/eventImages/${formattedName}.jpg`;
+  };  
   
    // Function to check if user is logged in - ADDED IMPLEMENTATION
   const checkLoginStatus = () => {
@@ -285,8 +299,11 @@ const Booking = ({setShowLogin}) => {
           eventType: selected.eventName || ''
         }));
       }
+
+      setEventImage(getEventImagePath(selected.eventName));
     } else {
       setSelectedPackage(null);
+      setEventImage('');
     }
   }, [formData.packageName, packages]);
 
@@ -644,7 +661,7 @@ const Booking = ({setShowLogin}) => {
                         >
                           <div className="search-result-name">{pkg.packageName}</div>
                           <div className="search-result-event">Event: {pkg.eventName}</div>
-                          <div className="search-result-price">₹{pkg.investedAmount}</div>
+                          <div className="search-result-price">{pkg.investedAmount}</div>
                         </div>
                       ))}
                     </div>
@@ -679,6 +696,16 @@ const Booking = ({setShowLogin}) => {
                 {selectedPackage && (
                   <div className="package-details-container">
                     <div className="package-modal-content">
+                    {eventImage && (
+                        <div className="package-image-container">
+                          <img 
+                            src={assets[`${selectedPackage.eventName}`]}  
+                            alt={`${selectedPackage.eventName}`} 
+                            className="package-event-image"
+                            style={{ width: '100%', height: '600px' }}
+                          />
+                        </div>
+                      )}
                       <p><strong>Coverage Hours:</strong> {selectedPackage.coverageHours}</p>
                       <p><strong>Investment:</strong> LKR {selectedPackage.investedAmount}</p>
                       <p><strong>Package Items:</strong></p>
@@ -701,7 +728,8 @@ const Booking = ({setShowLogin}) => {
 
               {/* Booking Options Section */}
               <div className="form-section">
-                <h3 className="section-title">Booking Options</h3>                <div className="form-group">
+                <h3 className="section-title">Booking Options</h3>                
+                <div className="form-group">
                   <label>Booking Type*</label>
                   <select
                     name="bookingStatus"
@@ -875,7 +903,8 @@ const Booking = ({setShowLogin}) => {
                           required
                         />
                       </div>
-                    </div>                  )}
+                    </div>                  
+                    )}
                 </div>
               
               {/* Additional Notes Section */}

@@ -15,7 +15,10 @@ import me01 from './me.jpg';
 import packageIcon from './packages.png';
 import bookingIcon from './booking.png';
 import eventIcon from './event.png';
-
+import Wedding from './wedding.jpg';
+import Homecoming from './homecoming.jpg';
+import Graduation from './graduation.jpg';
+import Birthday from './birthday.jpg';
 
 export const assets = {
     logo,
@@ -35,4 +38,8 @@ export const assets = {
     packageIcon,
     bookingIcon,
     eventIcon,
+    Wedding,
+    Homecoming,
+    Graduation,
+    Birthday
 };

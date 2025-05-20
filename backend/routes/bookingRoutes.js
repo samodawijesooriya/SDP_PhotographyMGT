@@ -13,7 +13,8 @@ import {
     getBookingByUserId,
     cancelBooking,
     getCompletedBookings,
-    saveBookingStatus
+    saveBookingStatus,
+    saveBookingOnlyStatus
 } from '../controllers/bookingController.js';
 
 import cleanupPencilBookings from '../controllers/cleanup-bookings.js';
@@ -66,7 +67,7 @@ bookingRouter.post('/cleanup', async (req, res) => {
 
 bookingRouter.get('/status/done', getCompletedBookings);
 
-bookingRouter.put('/save/:bookingId', saveBookingStatus);
+bookingRouter.put('/save/:bookingId', saveBookingOnlyStatus);
 
 export default bookingRouter;
 
