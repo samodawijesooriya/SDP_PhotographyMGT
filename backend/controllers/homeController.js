@@ -88,6 +88,7 @@ const getSummaryStats = async (req, res) => {
             SELECT 
             (SELECT COUNT(*) FROM Customers) as customerCount,
             (SELECT COUNT(*) FROM Package) as packageCount,
+            (SELECT COUNT(*) FROM PAYMENT) as paymentCount,
             (SELECT COALESCE(SUM(paymentAmount), 0) FROM payment) as totalRevenue,
             (SELECT COALESCE(SUM(paymentAmount), 0) 
              FROM payment 

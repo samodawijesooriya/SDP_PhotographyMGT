@@ -87,6 +87,7 @@ const Reports = () => {
         throw new Error('Failed to fetch booking statistics');
       }
       setBookingStats(response.data);
+      console.log("Booking stats:", response.data);
       
       // Update report data with the real values
       setReportData(prev => ({
@@ -112,7 +113,8 @@ const Reports = () => {
       setReportData(prev => ({
         ...prev,
         totalCustomers: response.data.customerCount,
-        totalRevenue: response.data.totalRevenue
+        totalRevenue: response.data.totalRevenue,
+        totalPayments: response.data.paymentCount,
       }));
     } catch (error) {
       console.error('Error fetching summary statistics:', error);
@@ -1130,13 +1132,13 @@ const Reports = () => {
                 <DollarSign size={18} />
                 Payment Reports
               </button>
-              <button 
+              {/* <button 
                 className={`tab-button ${activeTab === 'packages' ? 'active' : ''}`}
                 onClick={() => setActiveTab('packages')}
               >
                 <Package size={18} />
                 Package Reports
-              </button>
+              </button> */}
             </div>
             
             {/* Tab Content */}

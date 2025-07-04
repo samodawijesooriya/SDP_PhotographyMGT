@@ -86,21 +86,21 @@ cron.schedule('0 0 * * *', () => {
 });
 
 // Schedule task to send daily booking summary at 6:00 PM every day
-// cron.schedule('0 23 * * *', () => {
-//     console.log('Running scheduled daily booking summary task...');
-//     sendDailySummaryEmail()
-//         .then(result => {
-//             console.log('Daily booking summary email result:', result);
-//         })
-//         .catch(err => {
-//             console.error('Error sending daily booking summary:', err);
-//         });
-// });
+cron.schedule('0 23 * * *', () => {
+    console.log('Running scheduled daily booking summary task...');
+    sendDailySummaryEmail()
+        .then(result => {
+            console.log('Daily booking summary email result:', result);
+        })
+        .catch(err => {
+            console.error('Error sending daily booking summary:', err);
+        });
+});
 
 // to run the server
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
     
     // // Initialize the scheduler for daily booking summary
-    // initScheduler(app);
+    initScheduler(app);
 });

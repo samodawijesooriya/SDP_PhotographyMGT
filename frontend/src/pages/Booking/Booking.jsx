@@ -595,7 +595,7 @@ const Booking = ({setShowLogin}) => {
                       onChange={handleChange}
                       placeholder="Enter your email address"
                       required
-                      readOnly
+                      
                     />
                   </div>
                 </div>
