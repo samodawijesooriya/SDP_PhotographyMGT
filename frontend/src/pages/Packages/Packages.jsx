@@ -1146,13 +1146,13 @@ const Packages = () => {
         openCustomModal(null, packageData);
     };    // Filter packages based on search query
     const filteredStandardPackages = packages.filter(pkg => 
-        pkg.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        pkg.eventName.toLowerCase().includes(searchQuery.toLowerCase())
+        (pkg.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (pkg.eventName?.toLowerCase() || '').includes(searchQuery.toLowerCase())
     );
     
     const filteredCustomPackages = customPackages.filter(pkg => 
-        pkg.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        pkg.eventName.toLowerCase().includes(searchQuery.toLowerCase())
+        (pkg.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (pkg.eventName?.toLowerCase() || '').includes(searchQuery.toLowerCase())
     );
 
     if (loading) {

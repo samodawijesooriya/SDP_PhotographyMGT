@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useContext } from 'react';
 import './Events.css';
 import { StoreContext } from '../../context/StoreContext';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Calendar, MapPin, Clock, CreditCard, Phone, Mail, Home, Check, X } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Clock, CreditCard, Phone, Mail, Home, Check, X, NavigationOff } from 'lucide-react';
 
 const Events = () => {
   // Updated state to store user bookings
@@ -26,6 +27,7 @@ const Events = () => {
   const [cancelSuccess, setCancelSuccess] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [bookingToCancel, setBookingToCancel] = useState(null);
+  const navigate = useNavigate();
 
   // get the userid from local storage]
   // userData	{"userID":7,"username":"Customer02","email":"customer02@gmail.com","role":"customer"}
@@ -259,12 +261,29 @@ const Events = () => {
         formData.append('receipt', receiptFile);
         formData.append('referenceNumber', referenceNumber);
       }
+      // Determine new booking status based on payment logic
+      let newBookingStatus = selectedBooking.bookingStatus;
+      
+      // Check if payment equals the remaining balance
+      if (parseFloat(paymentAmount) >= parseFloat(selectedBooking.balanceAmount)) {
+        // If this is a completed booking type but doesn't have a delivery stage status yet,
+        // set it to the first delivery stage (Completed)
+        if (selectedBooking.bookingType === 'CompletedBooking' && 
+            !deliveryStages.some(stage => stage.status === selectedBooking.bookingStatus)) {
+          newBookingStatus = 'Completed';
+        } 
+        // For regular bookings, update to Confirmed if it was Pending
+        else if (selectedBooking.bookingStatus === 'Pending') {
+          newBookingStatus = 'Completed';
+        }
+      }
 
       const data = {
         bookingId: selectedBooking.bookingId,
         paymentAmount: paymentAmount,
         paymentMethod: paymentMethod,
-        referenceNumber: referenceNumber
+        referenceNumber: referenceNumber,
+        bookingStatus: newBookingStatus, // Send the updated status
       };
 
       // print the form data
@@ -321,7 +340,7 @@ const Events = () => {
           <div className="no-bookings-icon">📅</div>
           <h2>No Bookings Found</h2>
           <p>You haven't made any photography bookings yet.</p>
-          <button className="create-booking-btn">Book a Session Now</button>
+          <button className="create-booking-btn" onClick={() => navigate('/booking')}>Book a Session Now</button>
         </div>
       );
     }    return (      
@@ -847,6 +866,13 @@ const Events = () => {
                     className="back-to-details-btn"
                     onClick={() => {
                       setPaymentSuccess(false);
+                      setSelectedBooking(prevBooking => {
+                        // Get the updated booking from the bookings state
+                        const updatedBooking = bookings.find(b => b.bookingId === prevBooking.bookingId);
+                        return updatedBooking || prevBooking;
+                      });
+                      // Don't reload the page as it resets the component state
+                      // Instead, fetch the updated bookings
                       fetchUserBookings();
                     }}
                   >

@@ -102,7 +102,7 @@ const Gallery = () => {
   return (
     <div className="gallery-container">
       <div className="gallery-header">
-        <Link to="/album" className="back-button">
+        <Link to="/album" className="back">
           <i className="fa fa-arrow-left"></i> Back to Albums
         </Link>
       </div>

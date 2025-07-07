@@ -392,10 +392,9 @@ const createPayment = async (req, res) => {
         let newCreditCardId = null;
         let bankDepositId = null;
 
-        const { bookingId, paymentAmount, paymentMethod, receiptFile, referenceNumber } = req.body;
-        if (!bookingId || !paymentAmount || !paymentMethod) {
-            console.log(err)
-            return res.status(400).json({ message: 'Booking ID, payment amount, and payment method are required' });
+        const { bookingId, paymentAmount, paymentMethod, receiptFile, referenceNumber, bookingStatus } = req.body;
+        if (!bookingId || !paymentAmount || !paymentMethod || !bookingStatus) {
+            return res.status(400).json({ message: 'Booking ID, payment amount, and payment method bookingStatus are required' });
         }
 
         // get the last paymentId
@@ -431,6 +430,17 @@ const createPayment = async (req, res) => {
             if (bankDepositResult.affectedRows === 0) {
                 return res.status(500).json({ message: 'Failed to create bank deposit record' });
             }
+        }
+
+        // change the booking status to confirmed the booking
+        const updateBookingQuery = `
+            UPDATE booking
+            SET bookingStatus = ?
+            WHERE bookingId = ?
+        `;
+        const bookingResult = await queryDatabase(updateBookingQuery, [bookingStatus, bookingId]);
+        if (bookingResult.affectedRows === 0) {
+            return res.status(500).json({ message: 'Failed to update booking status' });
         }
 
         // insert payment record

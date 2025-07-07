@@ -81,6 +81,7 @@ const Events = () => {
       };
 
       console.log(updatedEvent);
+      
       // using axios to send a PUT request to update the event
       const response = await axios.put(
         `${url}/api/bookings/events/${event.bookingId}`, 

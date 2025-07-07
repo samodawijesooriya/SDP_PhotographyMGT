@@ -13,12 +13,12 @@
   margin-bottom: 30px;
 }
 
-.back-button {
+.back {
   margin-top: 10%;
   display: inline-flex;
   align-items: center;
   padding: 8px 16px;
-  background-color: #f3f4f6;
+  background-color: #858585;
   border-radius: 6px;
   text-decoration: none;
   color: #333;
