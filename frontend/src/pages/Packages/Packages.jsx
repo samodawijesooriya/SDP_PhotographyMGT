@@ -368,21 +368,19 @@ const CustomPackageModal = ({ eventType, existingPackage, onClose, onSubmit }) =
     let totalPrice = 0;
     
     // If data hasn't loaded yet, keep original price
-    if (!allItems || allItems.length === 0 || !allDetails || allDetails.length === 0) {
-      totalPrice = existingPackage 
-        ? (existingPackage.price || existingPackage.investedAmount || 0)
-        : (basePackage ? parseFloat(basePackage.investedAmount) : 0);
+    // if (!allItems || allItems.length === 0 || !allDetails || allDetails.length === 0) {
+    //   totalPrice = existingPackage 
+    //     ? (existingPackage.price || existingPackage.investedAmount || 0)
+    //     : (basePackage ? parseFloat(basePackage.investedAmount) : 0);
       
-      setCustomPackage(prev => ({ ...prev, investedAmount: totalPrice }));
-      console.log("Using default price due to missing data:", totalPrice);
-      return;
-    }
-    
-    // For new packages, use base package price
-    if (!existingPackage) {
-      // Base price for new packages from the base package
-      totalPrice = basePackage ? parseFloat(basePackage.investedAmount) : 0;
-    }
+    //   setCustomPackage(prev => ({ ...prev, investedAmount: totalPrice }));
+    //   console.log("Using default price due to missing data:", totalPrice);
+    //   return;
+    // }
+    console.log("Base Package Data:", existingPackage.investedAmount);
+
+    totalPrice = existingPackage.investedAmount; 
+    console.log("Starting with base package price:", totalPrice);
     
     // Calculate price from all current items (for both new and existing packages)
     if (items && items.length > 0) {
@@ -392,7 +390,7 @@ const CustomPackageModal = ({ eventType, existingPackage, onClose, onSubmit }) =
         
         const itemPrice = parseFloat(itemData.pricePerItem) || 0;
         const itemTotal = itemPrice * item.quantity;
-        totalPrice += itemTotal;
+        totalPrice = parseFloat(itemTotal) + parseFloat(totalPrice);
         console.log(`Item: ${item.itemType}, Qty: ${item.quantity}, Price: ${itemPrice}, Total: ${itemTotal}`);
       });
     }

@@ -10,13 +10,6 @@ const Login = ({setShowLogin}) => {
   const location = useLocation();
   const { url } = useContext(StoreContext);
   const [currState, setCurrState] = useState("Login");
-
-  const [forgotPasswordState, setForgotPasswordState] = useState("initial");
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetOtp, setResetOtp] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
-
   const [data, setData] = useState({
     username: "",
     password: "",
@@ -205,7 +198,7 @@ const Login = ({setShowLogin}) => {
         
         // If login tokens are provided after verification
         if (response.data.token) {
-          console.log("Token:", response.data.user);
+          localStorage.setItem("token", response.data.token);
           localStorage.setItem("userData", JSON.stringify(response.data.user));
           
           // Dispatch storage event for other components to detect login
@@ -261,8 +254,6 @@ const Login = ({setShowLogin}) => {
           username: data.username,
           password: data.password
         });
-
-        console.log("Login response:", response.data);
         
         if (response.data.success) {
           // If email is not verified
@@ -322,128 +313,6 @@ const Login = ({setShowLogin}) => {
     }
   };
 
-  // Function to handle forgot password email submission
-  const handleForgotPasswordSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Email validation
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    if (!emailRegex.test(resetEmail)) {
-      setError("Please enter a valid email address");
-      return;
-    }
-    
-    try {
-      setIsLoading(true);
-      console.log("Sending recovery email to:", resetEmail);
-      const response = await axios.post(`${url}/api/auth/forgotpassword`, { email: resetEmail });
-      
-      if (response.data.success) {
-        setForgotPasswordState("email-sent");
-        setSuccess("OTP has been sent to your email");
-        startResendTimer();
-      } else {
-        setError(response.data.message || "Failed to send recovery email");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      setError(error.response?.data?.message || "An error occurred while sending recovery email");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Function to verify OTP for password reset
-  const verifyResetOtp = async (e) => {
-    e.preventDefault();
-    
-    if (!resetOtp) {
-      setError("Please enter the OTP sent to your email");
-      return;
-    }
-    
-    try {
-      setIsLoading(true);
-      const response = await axios.post(`${url}/api/auth/verifyresetotp`, { 
-        email: resetEmail, 
-        otp: resetOtp 
-      });
-      
-      if (response.data.success) {
-        setForgotPasswordState("new-password");
-        setSuccess("OTP verified successfully. Please set your new password.");
-      } else {
-        setError(response.data.message || "Invalid OTP");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      setError(error.response?.data?.message || "An error occurred during verification");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Function to submit new password
-  const submitNewPassword = async (e) => {
-    e.preventDefault();
-    
-    // Validate password
-    if (newPassword.length < 5) {
-      setError("Password must be at least 5 characters long");
-      return;
-    }
-    
-    if (newPassword !== confirmNewPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-    
-    try {
-      setIsLoading(true);
-      const response = await axios.post(`${url}/api/auth/resetpassword`, {
-        email: resetEmail,
-        otp: resetOtp,
-        newPassword: newPassword
-      });
-      
-      if (response.data.success) {
-        setCurrState("Login");
-        setForgotPasswordState("initial");
-        setSuccess("Password reset successful! Please login with your new password");
-        setResetEmail("");
-        setResetOtp("");
-        setNewPassword("");
-        setConfirmNewPassword("");
-      } else {
-        setError(response.data.message || "Failed to reset password");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      setError(error.response?.data?.message || "An error occurred while resetting password");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Function to resend OTP for password reset (similar to existing resendOtp but with different endpoint)
-  const resendResetOtp = async () => {
-    try {
-      setIsLoading(true);
-      const response = await axios.post(`${url}/api/auth/resendresetotp`, { email: resetEmail });
-      if (response.data.success) {
-        setSuccess("OTP has been resent to your email");
-        startResendTimer();
-      } else {
-        setError(response.data.message || "Failed to resend OTP");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      setError(error.response?.data?.message || "An error occurred while resending OTP");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
   // Determine if component is being used as a page or popup
   const isPage = !setShowLogin;
 
@@ -458,21 +327,9 @@ const Login = ({setShowLogin}) => {
   return (
     <div className={isPage ? 'login-page' : 'login-popup'}>
       {isLoading && <Spinner />}
-      <form className='login-popup-container' onSubmit={
-        showVerification ? verifyOtp : 
-        forgotPasswordState === "email-sent" ? verifyResetOtp :
-        forgotPasswordState === "new-password" ? submitNewPassword :
-        forgotPasswordState === "initial" && currState === "Login" ? onLogin :
-        handleForgotPasswordSubmit
-      }>
+      <form className='login-popup-container' onSubmit={showVerification ? verifyOtp : onLogin}>
         <div className='login-popup-title'>
-          <h2>
-            {showVerification ? "Email Verification" : 
-            forgotPasswordState === "initial" && currState !== "Forgot Password" ? currState :
-            forgotPasswordState === "initial" ? "Forgot Password" :
-            forgotPasswordState === "email-sent" ? "Enter OTP" :
-            forgotPasswordState === "new-password" ? "Reset Password" : currState}
-          </h2>
+          <h2>{showVerification ? "Email Verification" : currState}</h2>
           {!isPage && (
             <img 
               onClick={() => setShowLogin(false)} 
@@ -552,136 +409,6 @@ const Login = ({setShowLogin}) => {
               </button>
             </div>
           </div>
-
-          ) : forgotPasswordState === "initial" && currState === "Forgot Password" ? (
-            // Forgot Password Email Input
-            <div className='login-popup-inputs'>
-              <p style={{ marginBottom: '1rem', textAlign: 'center' }}>
-                Enter your registered email address to receive a password reset OTP
-              </p>
-              <input
-                name='resetEmail'
-                onChange={(e) => setResetEmail(e.target.value)}
-                value={resetEmail}
-                type='email'
-                placeholder='Your Email'
-                required
-              />
-              <button type="submit" disabled={isLoading}>Send Reset OTP</button>
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'center', 
-                marginTop: '1rem'
-              }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCurrState("Login");
-                    setForgotPasswordState("initial");
-                    setError("");
-                    setSuccess("");
-                  }}
-                  style={{
-                    backgroundColor: 'transparent',
-                    color: '#333',
-                    border: 'none',
-                    textDecoration: 'underline',
-                    cursor: 'pointer',
-                    padding: '0',
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  Back to Login
-                </button>
-              </div>
-            </div>
-            ) : forgotPasswordState === "email-sent" ? (
-              // OTP Verification for Password Reset
-              <div className='login-popup-inputs'>
-                <p style={{ marginBottom: '1rem', textAlign: 'center' }}>
-                  Please enter the OTP sent to <strong>{resetEmail}</strong>
-                </p>
-                <input
-                  name='resetOtp'
-                  onChange={(e) => setResetOtp(e.target.value)}
-                  value={resetOtp}
-                  type='text'
-                  placeholder='Enter OTP'
-                  required
-                />
-                <button type="submit" disabled={isLoading}>Verify OTP</button>
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'center', 
-                  marginTop: '1rem',
-                  flexDirection: 'column',
-                  alignItems: 'center'
-                }}>
-                  <button
-                    type="button"
-                    onClick={resendResetOtp}
-                    disabled={resendDisabled || isLoading}
-                    style={{
-                      backgroundColor: 'transparent',
-                      color: (resendDisabled || isLoading) ? '#999' : '#333',
-                      border: 'none',
-                      textDecoration: 'underline',
-                      cursor: (resendDisabled || isLoading) ? 'not-allowed' : 'pointer',
-                      padding: '0',
-                      fontSize: '0.9rem'
-                    }}
-                  >
-                    {resendDisabled ? `Resend OTP in ${countdown}s` : 'Resend OTP'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrState("Login");
-                      setForgotPasswordState("initial");
-                      setError("");
-                      setSuccess("");
-                    }}
-                    style={{
-                      backgroundColor: 'transparent',
-                      color: '#333',
-                      border: 'none',
-                      textDecoration: 'underline',
-                      cursor: 'pointer',
-                      padding: '0.5rem 0',
-                      fontSize: '0.9rem'
-                    }}
-                  >
-                    Back to Login
-                  </button>
-                </div>
-              </div>
-            ) : forgotPasswordState === "new-password" ? (
-              // New Password Form
-              <div className='login-popup-inputs'>
-                <p style={{ marginBottom: '1rem', textAlign: 'center' }}>
-                  Enter your new password
-                </p>
-                <input
-                  name='newPassword'
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  value={newPassword}
-                  type='password'
-                  placeholder='New Password (min 5 characters)'
-                  required
-                  className={error && error.includes("at least 5 characters") ? 'input-error' : ''}
-                  minLength="5"
-                />
-                <input
-                  name='confirmNewPassword'
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  value={confirmNewPassword}
-                  type='password'
-                  placeholder='Confirm New Password'
-                  required
-                  className={error && error.includes("Passwords do not match") ? 'input-error' : ''}
-                />
-                <button type="submit" disabled={isLoading}>Reset Password</button>
-              </div>
         ) : (
           // Login/Sign Up Forms
           <>
@@ -705,7 +432,6 @@ const Login = ({setShowLogin}) => {
                     placeholder='Your Password' 
                     required 
                   />
-                  
                 </>
               ) : (
                 <>
@@ -805,35 +531,6 @@ const Login = ({setShowLogin}) => {
                 {currState === "Login" ? "Sign Up" : "Login"}
               </span>
             </p>
-
-            <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'flex-end', 
-                    width: '100%',
-                    marginTop: '-10px',
-                    marginBottom: '10px'
-                  }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCurrState("Forgot Password");
-                        setError("");
-                        setSuccess("");
-                      }}
-                      style={{
-                        backgroundColor: 'transparent',
-                        color: '#0000ff',
-                        border: 'none',
-                        textDecoration: 'underline',
-                        cursor: 'pointer',
-                        padding: '0',
-                        marginTop: '1.5rem',
-                        fontSize: '0.85rem'
-                      }}
-                    >
-                      Forgot Password?
-                    </button>
-            </div>
           </>
         )}
       </form>
